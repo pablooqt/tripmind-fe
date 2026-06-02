@@ -1,0 +1,14 @@
+@import "tailwindcss";
+@import "nativewind/theme";
+
+@theme {
+  --color-brand-950: #373737;
+  --color-brand-900: #092A29;
+  --color-brand-700: #196660;
+  --color-brand-600: #1C857C;
+  --color-brand-200: #A3ECDE;
+  --color-brand-50: #F1FCF9;
+  --color-border-stroke: #DCDCDC;
+  --color-bg-base: #F5F5F5;
+  --color-neutral-white: #FFFFFF;
+}
