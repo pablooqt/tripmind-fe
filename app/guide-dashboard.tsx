@@ -11,15 +11,16 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 
-let MapView: any;
-let Marker: any;
-try {
-  const Maps = require('react-native-maps');
-  MapView = Maps.default;
-  Marker = Maps.Marker;
-} catch (e) {
-  MapView = null;
-  Marker = null;
+let MapView: any = null;
+let Marker: any = null;
+if (Platform.OS !== 'web') {
+  try {
+    const Maps = require('react-native-maps');
+    MapView = Maps.default;
+    Marker = Maps.Marker;
+  } catch (e) {
+    // Maps tidak tersedia
+  }
 }
 
 export default function GuideDashboardScreen() {
@@ -123,7 +124,7 @@ export default function GuideDashboardScreen() {
                 <Ionicons name="person" size={26} color="#A8A8A8" />
               </View>
               {isOnline && (
-                <View 
+                <View
                   style={{
                     position: 'absolute',
                     bottom: 0,
@@ -156,7 +157,7 @@ export default function GuideDashboardScreen() {
             <Text className="text-[9.5px] font-bold text-gray-400 mb-1.5 tracking-wider pr-1">
               STATUS
             </Text>
-            
+
             <TouchableOpacity
               onPress={() => setIsOnline(!isOnline)}
               activeOpacity={0.9}
@@ -193,7 +194,7 @@ export default function GuideDashboardScreen() {
 
         {/* KARTU PENDAPATAN HARI INI (EARNINGS TODAY) */}
         <View className="bg-brand-700 rounded-3xl p-5.5 mb-4 relative overflow-hidden shadow-sm">
-          <View 
+          <View
             style={{
               position: 'absolute',
               right: 0,
@@ -204,7 +205,7 @@ export default function GuideDashboardScreen() {
               alignItems: 'center',
             }}
           >
-            <View 
+            <View
               style={{
                 width: 80,
                 height: 80,
@@ -215,7 +216,7 @@ export default function GuideDashboardScreen() {
                 alignItems: 'center',
               }}
             >
-              <View 
+              <View
                 style={{
                   width: 44,
                   height: 44,
@@ -285,7 +286,7 @@ export default function GuideDashboardScreen() {
         ) : (
           <View style={StyleSheet.absoluteFillObject} className="bg-[#ECD4CE]/20 justify-center items-center">
 
-            <View 
+            <View
               style={{
                 position: 'absolute',
                 width: '120%',
@@ -296,7 +297,7 @@ export default function GuideDashboardScreen() {
                 opacity: 0.4,
               }}
             />
-            <View 
+            <View
               style={{
                 position: 'absolute',
                 width: '90%',
@@ -307,7 +308,7 @@ export default function GuideDashboardScreen() {
                 opacity: 0.3,
               }}
             />
-            <View 
+            <View
               style={{
                 position: 'absolute',
                 width: '100%',
@@ -322,7 +323,7 @@ export default function GuideDashboardScreen() {
           </View>
         )}
 
-        <View 
+        <View
           style={{
             position: 'absolute',
             right: 16,
@@ -366,7 +367,7 @@ export default function GuideDashboardScreen() {
 
   // Helper untuk rendering penunjuk posisi biru melingkar di tengah peta
   const renderMapIndicator = () => (
-    <View 
+    <View
       style={{
         width: 52,
         height: 52,
@@ -378,7 +379,7 @@ export default function GuideDashboardScreen() {
         borderColor: 'rgba(30, 144, 255, 0.25)',
       }}
     >
-      <View 
+      <View
         style={{
           width: 36,
           height: 36,
@@ -404,7 +405,7 @@ export default function GuideDashboardScreen() {
       <View className="flex-1">
         {renderTabContent()}
       </View>
-      <View 
+      <View
         style={{
           position: 'absolute',
           bottom: 0,
@@ -423,12 +424,12 @@ export default function GuideDashboardScreen() {
         }}
       >
         {/* Floating Capsule pill styled tabs container inside the bottom safe base */}
-        <View 
+        <View
           style={{
             width: '100%',
             height: 58,
             borderRadius: 29,
-            backgroundColor: '#092A29', 
+            backgroundColor: '#092A29',
             flexDirection: 'row',
             justifyContent: 'space-around',
             alignItems: 'center',
@@ -447,7 +448,7 @@ export default function GuideDashboardScreen() {
               <Text className="text-brand-700 font-bold text-xs ml-2">Home</Text>
             </View>
           ) : (
-            <TouchableOpacity 
+            <TouchableOpacity
               onPress={() => setActiveTab('Home')}
               activeOpacity={0.8}
               className="items-center justify-center p-2"
@@ -464,7 +465,7 @@ export default function GuideDashboardScreen() {
               <Text className="text-brand-700 font-bold text-xs ml-2">Schedule</Text>
             </View>
           ) : (
-            <TouchableOpacity 
+            <TouchableOpacity
               onPress={() => setActiveTab('Schedule')}
               activeOpacity={0.8}
               className="items-center justify-center p-2"
@@ -481,7 +482,7 @@ export default function GuideDashboardScreen() {
               <Text className="text-brand-700 font-bold text-xs ml-2">History</Text>
             </View>
           ) : (
-            <TouchableOpacity 
+            <TouchableOpacity
               onPress={() => setActiveTab('History')}
               activeOpacity={0.8}
               className="items-center justify-center p-2"
@@ -498,7 +499,7 @@ export default function GuideDashboardScreen() {
               <Text className="text-brand-700 font-bold text-xs ml-2">Profile</Text>
             </View>
           ) : (
-            <TouchableOpacity 
+            <TouchableOpacity
               onPress={() => setActiveTab('Profile')}
               activeOpacity={0.8}
               className="items-center justify-center p-2"

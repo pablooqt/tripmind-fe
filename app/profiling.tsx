@@ -11,9 +11,11 @@ import {
   KeyboardAvoidingView,
   Platform,
   Alert,
+  ActivityIndicator,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
+import { getRecommendationsByPreference } from '@/services/api';
 
 export default function ProfilingScreen() {
   const router = useRouter();
@@ -52,7 +54,7 @@ export default function ProfilingScreen() {
         return;
       }
     }
-    
+
     if (currentStep < 5) {
       setCurrentStep(prev => prev + 1);
     } else {
@@ -60,9 +62,25 @@ export default function ProfilingScreen() {
     }
   };
 
-  const handleNotificationPermission = () => {
+  const [isLoading, setIsLoading] = useState<boolean>(false);
+
+  const handleNotificationPermission = async () => {
     setShowNotificationModal(false);
-    router.replace('/(tabs)/explore');
+    setIsLoading(true);
+    try {
+      const dobString = `${birthday.month.padStart(2, '0')}/${birthday.day.padStart(2, '0')}/${birthday.year}`;
+      await getRecommendationsByPreference({
+        user_preferences: [selectedPersona, ...selectedVibes],
+        dob_string: dobString,
+        mode: 'exploration',
+        limit: 6,
+      });
+    } catch (error) {
+      console.warn('Gagal prefetch rekomendasi:', error);
+    } finally {
+      setIsLoading(false);
+      router.replace('/(tabs)/explore');
+    }
   };
 
   const handleBack = () => {
@@ -136,7 +154,7 @@ export default function ProfilingScreen() {
   };
 
   const renderWhyAsk = (message: string) => (
-    <View 
+    <View
       style={{ borderColor: '#DCDCDC', borderWidth: 1 }}
       className="flex-row items-center p-3 rounded-2xl bg-brand-50/30 mb-8"
     >
@@ -149,9 +167,9 @@ export default function ProfilingScreen() {
 
   const renderProgressBar = (progressPercentage: number) => (
     <View className="w-full h-2 bg-brand-50 rounded-full mb-8 relative overflow-hidden">
-      <View 
-        style={{ width: `${progressPercentage}%` }} 
-        className="h-full bg-brand-700 rounded-full" 
+      <View
+        style={{ width: `${progressPercentage}%` }}
+        className="h-full bg-brand-700 rounded-full"
       />
     </View>
   );
@@ -175,14 +193,14 @@ export default function ProfilingScreen() {
         >
           {/* Overlay Gelap Tipis untuk Kontras */}
           <View className="absolute inset-0 bg-black/15" />
-          
+
           <View className="flex-1 justify-end">
             <SafeAreaView className="w-full">
               <View className="bg-white rounded-t-[40px] px-8 pt-10 pb-12 shadow-2xl">
                 <Text className="text-[26px] font-bold text-brand-950 mb-3 tracking-tight">
                   Hey traveler! Let's see where you are.
                 </Text>
-                
+
                 <Text className="text-[14px] text-gray-500 leading-6 mb-8">
                   To make your Bali adventure truly yours, we need a starting point. By knowing your location, our AI can tailor your day with the best nearby gems and make sure you spend more time exploring than sitting in traffic.
                 </Text>
@@ -243,7 +261,7 @@ export default function ProfilingScreen() {
                 <Text className="text-sm font-semibold text-brand-950 mb-3">
                   May i know your birthday?
                 </Text>
-                
+
                 <View className="flex-row gap-3 mb-8">
                   {/* Bulan */}
                   <View className="flex-1">
@@ -343,7 +361,7 @@ export default function ProfilingScreen() {
                 <Text className="text-[24px] font-bold text-brand-950 mb-2 tracking-tight">
                   {name ? `${name} is a great name, traveler` : 'Hey traveler! Great choice.'}
                 </Text>
-                
+
                 <Text className="text-[13px] text-gray-500 leading-5 mb-6">
                   We love that you're joining us! Pick a few things you enjoy doing so we can find the perfect spots that match your energy.
                 </Text>
@@ -393,7 +411,7 @@ export default function ProfilingScreen() {
                 <Text className="text-base font-bold text-brand-950 mb-3">
                   How fast do you like to move?
                 </Text>
-                
+
                 <View className="mb-8">
                   {speedOptions.map((speed) => {
                     const isSelected = selectedSpeed === speed;
@@ -455,7 +473,7 @@ export default function ProfilingScreen() {
                 <Text className="text-[24px] font-bold text-brand-950 mb-2 tracking-tight">
                   Eat well, travel better.
                 </Text>
-                
+
                 <Text className="text-[13px] text-gray-500 leading-5 mb-6">
                   Bali has it all! Tell us if you have any dietary preferences or allergies so our AI can find the safest and most delicious spots for you.
                 </Text>
@@ -505,7 +523,7 @@ export default function ProfilingScreen() {
                 <Text className="text-base font-bold text-brand-950 mb-3">
                   How's your spice tolerance?
                 </Text>
-                
+
                 <View className="mb-8">
                   {spiceOptions.map((spice) => {
                     const isSelected = selectedSpice === spice;
@@ -567,7 +585,7 @@ export default function ProfilingScreen() {
                 <Text className="text-[24px] font-bold text-brand-950 mb-2 tracking-tight">
                   What's your travel persona?
                 </Text>
-                
+
                 <Text className="text-[13px] text-gray-500 leading-5 mb-6">
                   Are you here to find peace, or are you chasing the next big adventure? Tell us your style so our AI knows exactly what to look for.
                 </Text>
@@ -598,7 +616,7 @@ export default function ProfilingScreen() {
                         >
                           {persona.title}
                         </Text>
-                        
+
                         <Text
                           style={{
                             color: isSelected ? '#E2F5F1' : '#6A6A6A',
@@ -647,7 +665,7 @@ export default function ProfilingScreen() {
                 <Text className="text-[26px] font-bold text-brand-950 mb-4 tracking-tight">
                   You're all set, {name || 'traveler'}!
                 </Text>
-                
+
                 <Text className="text-[14px] text-gray-500 leading-6 mb-8">
                   Your profile is ready and our AI is already mapping out some magic for you. To keep your journey smooth, we'd love to send you real-time updates.
                 </Text>
@@ -676,7 +694,7 @@ export default function ProfilingScreen() {
       </ScrollView>
 
       {showNotificationModal && (
-        <View 
+        <View
           style={{
             position: 'absolute',
             top: 0,
@@ -691,7 +709,7 @@ export default function ProfilingScreen() {
           }}
         >
           {/* Popup Card */}
-          <View 
+          <View
             style={{
               width: '100%',
               maxWidth: 320,
@@ -708,24 +726,24 @@ export default function ProfilingScreen() {
           >
             {/* Notification Mockup Container Area */}
             <View style={{ width: '100%', alignItems: 'center', marginVertical: 10, position: 'relative' }}>
-              
+
               {/* Soft Gradient/Radial Vignette Effect */}
-              <View 
-                style={{ 
-                  width: 140, 
-                  height: 140, 
-                  borderRadius: 70, 
-                  backgroundColor: '#E2F5F1', 
-                  position: 'absolute', 
-                  top: 20, 
+              <View
+                style={{
+                  width: 140,
+                  height: 140,
+                  borderRadius: 70,
+                  backgroundColor: '#E2F5F1',
+                  position: 'absolute',
+                  top: 20,
                   opacity: 0.65,
-                }} 
+                }}
               />
-              
+
               {/* Cards Stack */}
               <View style={{ width: '100%', alignItems: 'center', zIndex: 10 }}>
                 {/* 1. Top Card (staggered backdrop) */}
-                <View 
+                <View
                   style={{
                     width: '82%',
                     backgroundColor: 'rgba(255, 255, 255, 0.65)',
@@ -749,7 +767,7 @@ export default function ProfilingScreen() {
                 </View>
 
                 {/* 2. Middle Card (Focused primary card) */}
-                <View 
+                <View
                   style={{
                     width: '95%',
                     backgroundColor: '#FFFFFF',
@@ -768,7 +786,7 @@ export default function ProfilingScreen() {
                   }}
                 >
                   {/* Brand Logo with Lightning bolt */}
-                  <View 
+                  <View
                     style={{
                       width: 36,
                       height: 36,
@@ -796,7 +814,7 @@ export default function ProfilingScreen() {
                 </View>
 
                 {/* 3. Bottom Card (staggered outline) */}
-                <View 
+                <View
                   style={{
                     width: '88%',
                     backgroundColor: 'rgba(255, 255, 255, 0.8)',
@@ -812,7 +830,7 @@ export default function ProfilingScreen() {
                     alignItems: 'center',
                   }}
                 >
-                  <View 
+                  <View
                     style={{
                       width: 20,
                       height: 20,
@@ -833,13 +851,13 @@ export default function ProfilingScreen() {
             </View>
 
             {/* Description Text */}
-            <Text 
-              style={{ 
-                fontSize: 12.5, 
-                color: '#666666', 
-                textAlign: 'center', 
-                lineHeight: 18, 
-                marginTop: 24, 
+            <Text
+              style={{
+                fontSize: 12.5,
+                color: '#666666',
+                textAlign: 'center',
+                lineHeight: 18,
+                marginTop: 24,
                 marginBottom: 28,
                 paddingHorizontal: 6,
               }}

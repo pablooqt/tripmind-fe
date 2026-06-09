@@ -1,98 +1,117 @@
-import { Image } from 'expo-image';
-import { Platform, StyleSheet } from 'react-native';
+import React, { useState, useEffect, useCallback } from 'react';
+import {
+  View,
+  ScrollView,
+  StyleSheet,
+  StatusBar,
+  RefreshControl,
+} from 'react-native';
 
-import { HelloWave } from '@/components/hello-wave';
-import ParallaxScrollView from '@/components/parallax-scroll-view';
-import { ThemedText } from '@/components/themed-text';
-import { ThemedView } from '@/components/themed-view';
-import { Link } from 'expo-router';
+import HomeHeader from '@/components/home/HomeHeader';
+import HomeSearchBar from '@/components/home/HomeSearchBar';
+import HeroBanner from '@/components/home/HeroBanner';
+import SuggestedCities from '@/components/home/SuggestedCities';
+import TopPlacesSection from '@/components/home/TopPlacesSection';
+import { DestinationCard, getRecommendationsByPreference } from '@/services/api';
+
+// Preferensi default untuk halaman home (exploration mode)
+const DEFAULT_PREFERENCES = ['Hidden Gems', 'Beach & Sunset', 'Cultural & Heritage'];
+const DEFAULT_DOB = '01/01/1995'; // default usia ~30 tahun
 
 export default function HomeScreen() {
-  return (
-    <ParallaxScrollView
-      headerBackgroundColor={{ light: '#A1CEDC', dark: '#1D3D47' }}
-      headerImage={
-        <Image
-          source={require('@/assets/images/partial-react-logo.png')}
-          style={styles.reactLogo}
-        />
-      }>
-      <ThemedView style={styles.titleContainer}>
-        <ThemedText type="title">Welcome!</ThemedText>
-        <HelloWave />
-      </ThemedView>
-      <ThemedView style={styles.stepContainer}>
-        <ThemedText type="subtitle">Step 1: Try it</ThemedText>
-        <ThemedText>
-          Edit <ThemedText type="defaultSemiBold">app/(tabs)/index.tsx</ThemedText> to see changes.
-          Press{' '}
-          <ThemedText type="defaultSemiBold">
-            {Platform.select({
-              ios: 'cmd + d',
-              android: 'cmd + m',
-              web: 'F12',
-            })}
-          </ThemedText>{' '}
-          to open developer tools.
-        </ThemedText>
-      </ThemedView>
-      <ThemedView style={styles.stepContainer}>
-        <Link href="/modal">
-          <Link.Trigger>
-            <ThemedText type="subtitle">Step 2: Explore</ThemedText>
-          </Link.Trigger>
-          <Link.Preview />
-          <Link.Menu>
-            <Link.MenuAction title="Action" icon="cube" onPress={() => alert('Action pressed')} />
-            <Link.MenuAction
-              title="Share"
-              icon="square.and.arrow.up"
-              onPress={() => alert('Share pressed')}
-            />
-            <Link.Menu title="More" icon="ellipsis">
-              <Link.MenuAction
-                title="Delete"
-                icon="trash"
-                destructive
-                onPress={() => alert('Delete pressed')}
-              />
-            </Link.Menu>
-          </Link.Menu>
-        </Link>
+  const [search, setSearch]               = useState('');
+  const [destinations, setDestinations]   = useState<DestinationCard[]>([]);
+  const [loading, setLoading]             = useState(true);
+  const [refreshing, setRefreshing]       = useState(false);
 
-        <ThemedText>
-          {`Tap the Explore tab to learn more about what's included in this starter app.`}
-        </ThemedText>
-      </ThemedView>
-      <ThemedView style={styles.stepContainer}>
-        <ThemedText type="subtitle">Step 3: Get a fresh start</ThemedText>
-        <ThemedText>
-          {`When you're ready, run `}
-          <ThemedText type="defaultSemiBold">npm run reset-project</ThemedText> to get a fresh{' '}
-          <ThemedText type="defaultSemiBold">app</ThemedText> directory. This will move the current{' '}
-          <ThemedText type="defaultSemiBold">app</ThemedText> to{' '}
-          <ThemedText type="defaultSemiBold">app-example</ThemedText>.
-        </ThemedText>
-      </ThemedView>
-    </ParallaxScrollView>
+  const fetchDestinations = useCallback(async () => {
+    try {
+      const data = await getRecommendationsByPreference({
+        user_preferences: DEFAULT_PREFERENCES,
+        dob_string: DEFAULT_DOB,
+        mode: 'exploration',
+        limit: 10,
+      });
+      setDestinations(data);
+    } catch (err) {
+      console.warn('[Home] Gagal fetch destinations:', err);
+    } finally {
+      setLoading(false);
+      setRefreshing(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    fetchDestinations();
+  }, [fetchDestinations]);
+
+  const onRefresh = useCallback(() => {
+    setRefreshing(true);
+    fetchDestinations();
+  }, [fetchDestinations]);
+
+  // Filter destinasi berdasarkan search
+  const filtered = search.trim()
+    ? destinations.filter(
+        (d) =>
+          d.place_name.toLowerCase().includes(search.toLowerCase()) ||
+          d.category.toLowerCase().includes(search.toLowerCase()) ||
+          d.tags?.some((t) => t.toLowerCase().includes(search.toLowerCase()))
+      )
+    : destinations;
+
+  return (
+    <View style={styles.root}>
+      <StatusBar barStyle="dark-content" backgroundColor="#FFFFFF" />
+
+      {/* Header */}
+      <HomeHeader />
+
+      {/* Scrollable Body */}
+      <ScrollView
+        style={styles.scroll}
+        contentContainerStyle={styles.scrollContent}
+        showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={onRefresh}
+            tintColor="#196660"
+            colors={['#196660']}
+          />
+        }
+      >
+        {/* Search Bar */}
+        <HomeSearchBar value={search} onChangeText={setSearch} />
+
+        {/* Hero Banner — tampilkan 3 destinasi teratas */}
+        <HeroBanner destinations={filtered.slice(0, 3)} />
+
+        {/* Suggested Cities — derived dari tags destinasi */}
+        <SuggestedCities destinations={filtered} />
+
+        {/* Top Must Visit Places — semua data dari backend */}
+        <TopPlacesSection
+          destinations={filtered}
+          loading={loading}
+        />
+
+        {/* Bottom padding — beri ruang untuk floating navbar */}
+        <View style={{ height: 100 }} />
+      </ScrollView>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  titleContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
+  root: {
+    flex: 1,
+    backgroundColor: '#F5F5F5',
   },
-  stepContainer: {
-    gap: 8,
-    marginBottom: 8,
+  scroll: {
+    flex: 1,
   },
-  reactLogo: {
-    height: 178,
-    width: 290,
-    bottom: 0,
-    left: 0,
-    position: 'absolute',
+  scrollContent: {
+    paddingBottom: 16,
   },
 });

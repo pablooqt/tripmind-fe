@@ -15,8 +15,8 @@ export default function LoadingScreen() {
     Animated.parallel([
       Animated.spring(scale, {
         toValue: 1,
-        tension: 40,      // Mengontrol kekuatan pantulan
-        friction: 6,       // Mengontrol kelenturan gerakan
+        tension: 40,      
+        friction: 6,       
         useNativeDriver: true,
       }),
       Animated.timing(opacity, {
