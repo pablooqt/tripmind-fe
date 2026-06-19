@@ -12,6 +12,7 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import GuideTripsScreen from '../components/guide/trips';
+import GuideHistoryScreen from '../components/guide/history';
 
 let MapView: any = null;
 let Marker: any = null;
@@ -86,7 +87,7 @@ export default function GuideDashboardScreen() {
       case 'Schedule':
         return renderPlaceholderTab('Schedule Calendar', 'calendar-outline');
       case 'History':
-        return renderPlaceholderTab('Trip History', 'time-outline');
+        return <GuideHistoryScreen onBack={() => setActiveTab('Home')} />;
       case 'Profile':
         return renderPlaceholderTab('Guide Profile Settings', 'person-outline');
       default:
