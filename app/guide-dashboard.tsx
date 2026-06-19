@@ -10,6 +10,8 @@ import {
   StyleSheet,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { useRouter } from 'expo-router';
+import GuideTripsScreen from '../components/guide/trips';
 
 let MapView: any = null;
 let Marker: any = null;
@@ -24,9 +26,11 @@ if (Platform.OS !== 'web') {
 }
 
 export default function GuideDashboardScreen() {
+  const router = useRouter();
   const { width: screenWidth } = useWindowDimensions();
   const [activeTab, setActiveTab] = useState<'Home' | 'Schedule' | 'History' | 'Profile'>('Home');
   const [isOnline, setIsOnline] = useState<boolean>(true);
+  const [showTrips, setShowTrips] = useState<boolean>(false);
   const mapRef = useRef<any>(null);
 
   // Status GPS Koordinat Lokasi
@@ -238,7 +242,11 @@ export default function GuideDashboardScreen() {
 
         <View className="flex-row gap-4 mb-4">
           {/* Widget Trips */}
-          <View className="flex-1 bg-white rounded-3xl p-4.5 shadow-sm">
+          <TouchableOpacity 
+            className="flex-1 bg-white rounded-3xl p-4.5 shadow-sm"
+            activeOpacity={0.8}
+            onPress={() => setShowTrips(true)}
+          >
             <View className="flex-row justify-between items-center mb-3">
               <Text className="text-[9.5px] font-bold text-gray-400 tracking-wider">
                 TRIPS
@@ -248,7 +256,7 @@ export default function GuideDashboardScreen() {
             <Text className="text-[26px] font-extrabold text-brand-950">
               3
             </Text>
-          </View>
+          </TouchableOpacity>
 
           {/* Widget Active Hours */}
           <View className="flex-1 bg-white rounded-3xl p-4.5 shadow-sm">
@@ -398,6 +406,10 @@ export default function GuideDashboardScreen() {
       </View>
     </View>
   );
+
+  if (showTrips) {
+    return <GuideTripsScreen onBack={() => setShowTrips(false)} />;
+  }
 
   return (
     <View className="flex-1 bg-white">
