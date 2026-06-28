@@ -13,6 +13,11 @@ import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import GuideTripsScreen from '../components/guide/trips';
 import GuideHistoryScreen from '../components/guide/history';
+import GuideProfileScreen from '../components/guide/profile';
+import PersonalInformationScreen from '../components/guide/personal-information';
+import PayoutDetailsScreen from '../components/guide/payout-details';
+import VerificationTrustScreen from '../components/guide/verification-trust';
+import NotificationPreferencesScreen from '../components/guide/notification-preferences';
 
 let MapView: any = null;
 let Marker: any = null;
@@ -32,6 +37,7 @@ export default function GuideDashboardScreen() {
   const [activeTab, setActiveTab] = useState<'Home' | 'Schedule' | 'History' | 'Profile'>('Home');
   const [isOnline, setIsOnline] = useState<boolean>(true);
   const [showTrips, setShowTrips] = useState<boolean>(false);
+  const [activeProfileScreen, setActiveProfileScreen] = useState<'MAIN' | 'PERSONAL_INFO' | 'PAYOUT' | 'VERIFICATION' | 'NOTIFICATION'>('MAIN');
   const mapRef = useRef<any>(null);
 
   // Status GPS Koordinat Lokasi
@@ -89,7 +95,7 @@ export default function GuideDashboardScreen() {
       case 'History':
         return <GuideHistoryScreen onBack={() => setActiveTab('Home')} />;
       case 'Profile':
-        return renderPlaceholderTab('Guide Profile Settings', 'person-outline');
+        return <GuideProfileScreen onNavigate={(screen) => setActiveProfileScreen(screen)} />;
       default:
         return renderHomeTab();
     }
@@ -412,31 +418,46 @@ export default function GuideDashboardScreen() {
     return <GuideTripsScreen onBack={() => setShowTrips(false)} />;
   }
 
+  // Handle profile sub-screens at the root level to hide tab bar
+  switch(activeProfileScreen) {
+    case 'PERSONAL_INFO':
+      return <PersonalInformationScreen onBack={() => setActiveProfileScreen('MAIN')} />;
+    case 'PAYOUT':
+      return <PayoutDetailsScreen onBack={() => setActiveProfileScreen('MAIN')} />;
+    case 'VERIFICATION':
+      return <VerificationTrustScreen onBack={() => setActiveProfileScreen('MAIN')} />;
+    case 'NOTIFICATION':
+      return <NotificationPreferencesScreen onBack={() => setActiveProfileScreen('MAIN')} />;
+    default:
+      break;
+  }
+
   return (
     <View className="flex-1 bg-white">
       {/* KONTEN TAB UTAMA */}
       <View className="flex-1">
         {renderTabContent()}
       </View>
-      <View
-        style={{
-          position: 'absolute',
-          bottom: 0,
-          left: 0,
-          right: 0,
-          height: Platform.OS === 'ios' ? 100 : 85,
-          backgroundColor: '#FFFFFF',
-          borderTopWidth: 1,
-          borderTopColor: '#EBEBEB',
-          paddingHorizontal: 20,
-          paddingTop: 10,
-          paddingBottom: Platform.OS === 'ios' ? 26 : 14,
-          justifyContent: 'center',
-          alignItems: 'center',
-          zIndex: 99,
-        }}
-      >
-        {/* Floating Capsule pill styled tabs container inside the bottom safe base */}
+      {activeProfileScreen === 'MAIN' && (
+        <View
+          style={{
+            position: 'absolute',
+            bottom: 0,
+            left: 0,
+            right: 0,
+            height: Platform.OS === 'ios' ? 100 : 85,
+            backgroundColor: '#FFFFFF',
+            borderTopWidth: 1,
+            borderTopColor: '#EBEBEB',
+            paddingHorizontal: 20,
+            paddingTop: 10,
+            paddingBottom: Platform.OS === 'ios' ? 26 : 14,
+            justifyContent: 'center',
+            alignItems: 'center',
+            zIndex: 99,
+          }}
+        >
+          {/* Floating Capsule pill styled tabs container inside the bottom safe base */}
         <View
           style={{
             width: '100%',
@@ -522,7 +543,8 @@ export default function GuideDashboardScreen() {
             </TouchableOpacity>
           )}
         </View>
-      </View>
+        </View>
+      )}
     </View>
   );
 }
