@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { View, Text, SafeAreaView, TouchableOpacity, ScrollView, StyleSheet, Image } from 'react-native';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
+import { router } from 'expo-router';
 import { COLORS } from '@/components/home/colors';
 
 import PersonalInformationScreen from './personal-information';
@@ -114,7 +115,7 @@ export default function GuideProfileScreen({ onNavigate }: { onNavigate: (screen
         onClose={() => setShowLogoutModal(false)}
         onConfirm={() => {
           setShowLogoutModal(false);
-          // Handle actual logout logic here
+          router.replace('/login');
         }}
       />
     </SafeAreaView>
