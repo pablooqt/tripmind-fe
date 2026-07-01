@@ -18,7 +18,6 @@ interface OtpModalProps {
 export default function OtpModal({ visible, onClose, onVerify, email }: OtpModalProps) {
   const [otp, setOtp] = useState<string[]>(['', '', '', '']);
 
-  // Refs untuk Kotak Input OTP dideklarasikan secara eksplisit untuk React Compiler
   const otpRef0 = useRef<TextInput>(null);
   const otpRef1 = useRef<TextInput>(null);
   const otpRef2 = useRef<TextInput>(null);
@@ -26,31 +25,26 @@ export default function OtpModal({ visible, onClose, onVerify, email }: OtpModal
 
   const otpRefs = [otpRef0, otpRef1, otpRef2, otpRef3];
 
-  // Reset OTP saat modal dibuka kembali
   useEffect(() => {
     if (visible) {
       setOtp(['', '', '', '']);
-      // Fokus kotak pertama setelah modal terbuka
       setTimeout(() => {
         otpRefs[0].current?.focus();
       }, 100);
     }
   }, [visible]);
 
-  // Penanganan Input OTP
   const handleOtpChange = (value: string, index: number) => {
     const newOtp = [...otp];
-    newOtp[index] = value.slice(-1); // Ambil hanya karakter terakhir
+    newOtp[index] = value.slice(-1);
     setOtp(newOtp);
 
-    // Otomatis pindah ke kotak berikutnya jika angka diisi
     if (value !== '' && index < 3) {
       otpRefs[index + 1].current?.focus();
     }
   };
 
   const handleOtpKeyPress = (e: any, index: number) => {
-    // Otomatis pindah ke kotak sebelumnya jika tombol hapus (backspace) ditekan saat kosong
     if (e.nativeEvent.key === 'Backspace' && otp[index] === '' && index > 0) {
       otpRefs[index - 1].current?.focus();
     }
@@ -72,7 +66,6 @@ export default function OtpModal({ visible, onClose, onVerify, email }: OtpModal
       animationType="fade"
       onRequestClose={onClose}
     >
-      {/* Overlay Gelap Latar Belakang Modal - Digelapkan Mendalam */}
       <View 
         style={{
           flex: 1,
@@ -82,7 +75,6 @@ export default function OtpModal({ visible, onClose, onVerify, email }: OtpModal
         }}
         className="px-6"
       >
-        {/* Kartu Modal Putih dengan Lebar Terkunci */}
         <View 
           style={{
             width: '90%',
@@ -94,15 +86,13 @@ export default function OtpModal({ visible, onClose, onVerify, email }: OtpModal
           }}
           className="shadow-2xl"
         >
-          
-          {/* Tombol Tutup Silang Melingkar (Sesuai Figma Close Up) */}
           <TouchableOpacity
             onPress={onClose}
             style={{
               position: 'absolute',
               top: 16,
               right: 16,
-              backgroundColor: '#F3F4F6', // Latar lingkaran abu-abu terang
+              backgroundColor: '#F3F4F6',
               borderRadius: 99,
               padding: 6,
             }}
@@ -110,14 +100,12 @@ export default function OtpModal({ visible, onClose, onVerify, email }: OtpModal
             <Ionicons name="close" size={16} color="#373737" />
           </TouchableOpacity>
 
-          {/* Ikon Perisai di Atas */}
           <View className="items-center mt-2 mb-4">
             <View className="bg-brand-50 p-4 rounded-full">
               <Ionicons name="shield-checkmark" size={32} color="#196660" />
             </View>
           </View>
 
-          {/* Judul & Deskripsi Modal */}
           <Text className="text-xl font-bold text-center text-brand-950 mb-2">
             Enter Security Code
           </Text>
@@ -126,7 +114,6 @@ export default function OtpModal({ visible, onClose, onVerify, email }: OtpModal
             <Text style={{ fontWeight: '600', color: '#373737' }}>{email || 'hello@traveldulu.com'}</Text>
           </Text>
 
-          {/* KOTAK INPUT 4-DIGIT OTP (KUADRAT BULAT DENGAN GAP LEBAR) */}
           <View className="flex-row justify-center mb-6" style={{ gap: 16 }}>
             {otp.map((digit, index) => (
               <TextInput
@@ -140,10 +127,10 @@ export default function OtpModal({ visible, onClose, onVerify, email }: OtpModal
                 selectTextOnFocus
                 style={{
                   width: 54,
-                  height: 54, // Kuadrat sempurna
+                  height: 54,
                   borderWidth: 1.5,
                   borderColor: digit !== '' ? '#196660' : '#E5E7EB',
-                  borderRadius: 16, // Sudut bulat manis
+                  borderRadius: 16,
                   textAlign: 'center',
                   fontSize: 24,
                   fontWeight: 'bold',
@@ -154,7 +141,6 @@ export default function OtpModal({ visible, onClose, onVerify, email }: OtpModal
             ))}
           </View>
 
-          {/* Tombol Verifikasi Kode (Sesuai Desain Figma) */}
           <TouchableOpacity
             onPress={handleVerify}
             activeOpacity={0.9}
@@ -169,7 +155,7 @@ export default function OtpModal({ visible, onClose, onVerify, email }: OtpModal
               shadowOffset: { width: 0, height: 4 },
               shadowOpacity: 0.2,
               shadowRadius: 6,
-              elevation: 4, // Efek shadow pada Android
+              elevation: 4,
             }}
           >
             <Text className="text-white font-bold text-lg text-center">
@@ -177,7 +163,6 @@ export default function OtpModal({ visible, onClose, onVerify, email }: OtpModal
             </Text>
           </TouchableOpacity>
 
-          {/* Tautan Kirim Ulang OTP */}
           <View className="flex-row justify-center mt-5">
             <Text className="text-sm text-gray-400">Didn't Receive it? </Text>
             <TouchableOpacity>

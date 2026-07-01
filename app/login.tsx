@@ -11,7 +11,7 @@ import {
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
-import OtpModal from '@/components/OtpModal';
+import OtpModal from '@/components/traveler/otp-modal';
 
 export default function LoginScreen() {
   const router = useRouter();
