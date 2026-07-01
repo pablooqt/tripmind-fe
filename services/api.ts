@@ -3,11 +3,16 @@
 //  Semua request ke backend lewat sini — import pakai @/services/api
 // ============================================================
 
-// Ganti BASE_URL sesuai kondisi:
-// - Android Emulator               → "http://10.0.2.2:8000"   ← AKTIF
-// - iOS Simulator / Web browser    → "http://localhost:8000"
-// - HP fisik (sambung WiFi)        → "http://<IP_KOMPUTER>:8000"
-export const BASE_URL = "http://10.0.2.2:8000";
+import Constants from 'expo-constants';
+
+// Mendapatkan IP address laptop/PC secara dinamis agar berjalan di HP Fisik maupun Emulator
+const getDebuggerHost = () => {
+  const hostUri = Constants.expoConfig?.hostUri;
+  if (!hostUri) return 'localhost';
+  return hostUri.split(':')[0];
+};
+
+export const BASE_URL = `http://${getDebuggerHost()}:8000`;
 
 
 // ============================================================

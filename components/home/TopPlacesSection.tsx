@@ -19,6 +19,15 @@ interface Props {
   onCardPress?: (destination: DestinationCard) => void;
 }
 
+const formatTag = (tag: string): string => {
+  if (!tag) return '';
+  return tag
+    .replace(/[_-]/g, ' ')
+    .split(' ')
+    .map(word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
+    .join(' ');
+};
+
 export default function TopPlacesSection({ destinations, loading, onSeeAll, onCardPress }: Props) {
   return (
     <View>
@@ -63,7 +72,7 @@ export default function TopPlacesSection({ destinations, loading, onSeeAll, onCa
 
               {/* Category Tag */}
               <View style={styles.tag}>
-                <Text style={styles.tagText}>{dest.category}</Text>
+                <Text style={styles.tagText}>{formatTag(dest.category)}</Text>
               </View>
 
               {/* Info */}
@@ -94,7 +103,7 @@ export default function TopPlacesSection({ destinations, loading, onSeeAll, onCa
                   <View style={styles.tagsRow}>
                     {dest.tags.slice(0, 2).map((tag, i) => (
                       <View key={i} style={styles.tagPill}>
-                        <Text style={styles.tagPillText}>{tag}</Text>
+                        <Text style={styles.tagPillText}>{formatTag(tag)}</Text>
                       </View>
                     ))}
                   </View>

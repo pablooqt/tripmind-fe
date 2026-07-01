@@ -17,6 +17,15 @@ import { COLORS } from '@/components/home/colors';
 const { width: W } = Dimensions.get('window');
 const SWIPE_THRESHOLD = 80;
 
+const formatTag = (tag: string): string => {
+  if (!tag) return '';
+  return tag
+    .replace(/[_-]/g, ' ')
+    .split(' ')
+    .map(word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
+    .join(' ');
+};
+
 // ─── Types ──────────────────────────────────────────────────────────────────
 interface Props {
   destination: DestinationCard;
@@ -131,7 +140,7 @@ export default function ExploreCard({ destination, onLike, onSkip, stackIndex = 
           <View style={styles.badgeRow}>
             {destination.tags?.slice(0, 3).map((tag, i) => (
               <View key={i} style={styles.badge}>
-                <Text style={styles.badgeText}>{tag}</Text>
+                <Text style={styles.badgeText}>{formatTag(tag)}</Text>
               </View>
             ))}
             {destination.rating > 0 && (
