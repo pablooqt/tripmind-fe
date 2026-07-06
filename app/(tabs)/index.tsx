@@ -200,7 +200,10 @@ export default function HomeScreen() {
                   style={styles.searchCard}
                   activeOpacity={0.9}
                   onPress={() => {
-                    alert(`Melihat detail: ${dest.place_name}`);
+                    router.push({
+                      pathname: '/destination/[id]',
+                      params: { id: dest.id }
+                    });
                   }}
                 >
                   <SafeImage
@@ -266,6 +269,12 @@ export default function HomeScreen() {
                   params: { type: 'preferences', title: 'Recommended by Preference' }
                 });
               }}
+              onCardPress={(dest) => {
+                router.push({
+                  pathname: '/destination/[id]',
+                  params: { id: dest.id }
+                });
+              }}
             />
 
             {/* Section 2: Top Must Visit Places (Seluruh Bali) */}
@@ -277,6 +286,12 @@ export default function HomeScreen() {
                 router.push({
                   pathname: '/destinations-list',
                   params: { type: 'top', title: 'Top Must Visit Places' }
+                });
+              }}
+              onCardPress={(dest) => {
+                router.push({
+                  pathname: '/destination/[id]',
+                  params: { id: dest.id }
                 });
               }}
             />
