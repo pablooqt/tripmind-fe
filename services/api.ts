@@ -159,6 +159,13 @@ export async function submitTravelerProfiling(
   });
 }
 
+/** Mengambil profil dan preferensi traveler yang sedang login */
+export async function getUserProfileAndPreferences(): Promise<any> {
+  const response = await apiRequest<{ status: string; data: any }>("/api/v1/preferences/");
+  return response.data;
+}
+
+
 /** Mengambil daftar destinasi rekomendasi AI berdasarkan profil preferensi traveler di database */
 export async function getRecommendationsFromProfile(params: {
   mode?: "normal" | "exploration";
@@ -218,3 +225,32 @@ export const getFirstPhotoUrl = (photoUrls: any): string => {
   }
   return '';
 };
+
+/** Mengambil detail lengkap suatu destinasi berdasarkan ID */
+export async function getDestinationDetail(id: number): Promise<DestinationCard> {
+  const response = await apiRequest<{ status: string; data: DestinationCard }>(
+    `/api/v1/destinations/${id}`
+  );
+  return response.data;
+}
+
+/** Menambahkan destinasi ke dalam daftar favorit */
+export async function addFavorite(id_destination: number): Promise<any> {
+  return apiRequest<any>('/api/v1/favorites/add', {
+    method: 'POST',
+    body: JSON.stringify({ id_destination }),
+  });
+}
+
+/** Menghapus destinasi dari daftar favorit */
+export async function removeFavorite(id_destination: number): Promise<any> {
+  return apiRequest<any>(`/api/v1/favorites/${id_destination}`, {
+    method: 'DELETE',
+  });
+}
+
+/** Mengambil seluruh daftar destinasi favorit milik user */
+export async function getUserFavorites(): Promise<any[]> {
+  const response = await apiRequest<{ status: string; data: any[] }>('/api/v1/favorites/');
+  return response.data;
+}
