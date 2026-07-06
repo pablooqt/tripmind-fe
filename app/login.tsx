@@ -8,13 +8,21 @@ import {
   KeyboardAvoidingView,
   Platform,
   ScrollView,
+  ActivityIndicator,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
+import * as WebBrowser from 'expo-web-browser';
+import * as Linking from 'expo-linking';
 import OtpModal from '@/components/traveler/otp-modal';
+import { useAuth } from '@/context/AuthContext';
+import { BASE_URL } from '@/services/api';
+
+WebBrowser.maybeCompleteAuthSession();
 
 export default function LoginScreen() {
   const router = useRouter();
+  const { login, register, verifyOtp, saveGoogleSession, isLoading } = useAuth();
 
   // Status Alur Autentikasi
   const [step, setStep] = useState<'role-selection' | 'auth'>('role-selection');
@@ -36,16 +44,114 @@ export default function LoginScreen() {
     setStep('auth');
   };
 
-  const handleSubmit = () => {
-    setShowOtp(true);
+  const handleSubmit = async () => {
+    if (!email.trim() || !password.trim()) {
+      alert('Harap isi alamat email dan password Anda.');
+      return;
+    }
+
+    const currentRole = role || 'traveler';
+
+    if (isSignUp) {
+      if (password !== confirmPassword) {
+        alert('Konfirmasi password tidak cocok.');
+        return;
+      }
+      
+      // Default name diambil dari email prefix
+      const defaultName = email.split('@')[0];
+      const res = await register(defaultName, email, password, currentRole === 'guide' ? 'guide' : 'user');
+      
+      if (res.success) {
+        setShowOtp(true);
+      } else {
+        alert(res.error ?? 'Registrasi gagal.');
+      }
+    } else {
+      // Proses Login
+      const res = await login(email, password, currentRole === 'guide' ? 'guide' : 'user');
+      if (res.success) {
+        if (res.verified) {
+          if (currentRole === 'guide') {
+            router.replace('/guide-dashboard');
+          } else {
+            router.replace('/(tabs)');
+          }
+        } else {
+          // Email belum diverifikasi (error 403 / unverified)
+          setShowOtp(true);
+        }
+      } else {
+        alert(res.error ?? 'Gagal masuk. Periksa kembali email dan sandi Anda.');
+      }
+    }
   };
 
-  const handleVerifyOtp = () => {
-    setShowOtp(false);
-    if (role === 'guide') {
-      router.replace('/guide-dashboard');
+  const handleVerifyOtp = async (code: string) => {
+    const currentRole = role || 'traveler';
+    const res = await verifyOtp(
+      email,
+      code,
+      currentRole === 'guide' ? 'guide' : 'user',
+      password // Auto-login setelah OTP diverifikasi
+    );
+
+    if (res.success) {
+      setShowOtp(false);
+      if (currentRole === 'guide') {
+        router.replace('/guide-dashboard');
+      } else {
+        router.replace('/profiling');
+      }
     } else {
-      router.replace('/profiling');
+      alert(res.error ?? 'Kode keamanan salah atau kedaluwarsa.');
+    }
+  };
+
+  const handleGoogleLogin = async () => {
+    try {
+      const redirectUri = Linking.createURL('login');
+      const authUrl = `https://noxdtjknzizhssbxibqh.supabase.co/auth/v1/authorize?provider=google&redirect_to=${encodeURIComponent(redirectUri)}`;
+      
+      const result = await WebBrowser.openAuthSessionAsync(authUrl, redirectUri);
+      
+      if (result.type === 'success' && result.url) {
+        const fragment = result.url.split('#')[1];
+        if (fragment) {
+          const params = new URLSearchParams(fragment);
+          const accessToken = params.get('access_token');
+          if (accessToken) {
+            // Tarik profil user dari backend /me menggunakan token
+            const profileRes = await fetch(`${BASE_URL}/api/v1/auth/me`, {
+              headers: { 'Authorization': `Bearer ${accessToken}` }
+            });
+            const profileBody = await profileRes.json();
+            
+            if (profileRes.ok && profileBody.status === 'success') {
+              const profileData = profileBody.data;
+              const currentRole = role || 'traveler';
+
+              // Simpan sesi global
+              saveGoogleSession(accessToken, { ...profileData, role: currentRole === 'guide' ? 'guide' : 'user' });
+
+              if (currentRole === 'guide') {
+                router.replace('/guide-dashboard');
+              } else {
+                // Traveler baru yang belum onboarding diarahkan ke profiling
+                if (profileData.birth_date) {
+                  router.replace('/(tabs)');
+                } else {
+                  router.replace('/profiling');
+                }
+              }
+            } else {
+              throw new Error(profileBody.detail ?? 'Gagal mengambil data profil Google.');
+            }
+          }
+        }
+      }
+    } catch (err: any) {
+      alert(`Google Sign-In: ${err.message}`);
     }
   };
 
@@ -66,7 +172,7 @@ export default function LoginScreen() {
           contentContainerStyle={{ flexGrow: 1, justifyContent: 'flex-end' }}
           keyboardShouldPersistTaps="handled"
         >
-          {/* Tombol Kembali ke Pemilihan Peran (Hanya muncul jika di Form Auth) */}
+          {/* Tombol Kembali ke Pemilihan Peran */}
           {step === 'auth' && (
             <TouchableOpacity
               onPress={() => setStep('role-selection')}
@@ -221,12 +327,17 @@ export default function LoginScreen() {
                 {/* Tombol Utama Sign In / Sign Up */}
                 <TouchableOpacity
                   onPress={handleSubmit}
+                  disabled={isLoading}
                   activeOpacity={0.9}
                   className="w-full bg-brand-700 py-4 rounded-xl items-center justify-center shadow-lg shadow-brand-700/20"
                 >
-                  <Text className="text-white font-bold text-base">
-                    {isSignUp ? 'Sign Up' : 'Sign In'}
-                  </Text>
+                  {isLoading ? (
+                    <ActivityIndicator size="small" color="#FFFFFF" />
+                  ) : (
+                    <Text className="text-white font-bold text-base">
+                      {isSignUp ? 'Sign Up' : 'Sign In'}
+                    </Text>
+                  )}
                 </TouchableOpacity>
 
                 {/* PEMBATAS METODE SOSIAL */}
@@ -236,9 +347,9 @@ export default function LoginScreen() {
                   <View className="flex-1 h-[1px] bg-border-stroke" />
                 </View>
 
-                {/* TOMBOL SOSIAL MEDIA MOCKUP */}
+                {/* TOMBOL SOSIAL MEDIA MOCKUP & GOOGLE REAL */}
                 <View className="flex-row" style={{ gap: 16 }}>
-                  {/* Facebook Button */}
+                  {/* Facebook Button Mockup */}
                   <TouchableOpacity
                     activeOpacity={0.8}
                     className="flex-1 flex-row items-center justify-center border border-border-stroke py-3 rounded-xl bg-white"
@@ -247,8 +358,9 @@ export default function LoginScreen() {
                     <Text className="text-brand-950 font-semibold text-sm ml-2">Facebook</Text>
                   </TouchableOpacity>
 
-                  {/* Google Button */}
+                  {/* Google Button Real */}
                   <TouchableOpacity
+                    onPress={handleGoogleLogin}
                     activeOpacity={0.8}
                     className="flex-1 flex-row items-center justify-center border border-border-stroke py-3 rounded-xl bg-white"
                   >
