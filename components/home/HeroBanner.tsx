@@ -9,7 +9,7 @@ import {
   NativeSyntheticEvent,
   NativeScrollEvent,
 } from 'react-native';
-import { DestinationCard } from '@/services/api';
+import { DestinationCard, getFirstPhotoUrl } from '@/services/api';
 import { COLORS } from './colors';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
@@ -47,14 +47,7 @@ export default function HeroBanner({ destinations }: Props) {
   const flatRef = useRef<FlatList>(null);
   const [current, setCurrent] = useState(0);
 
-  // Pakai data dari API kalau ada, fallback ke statis
-  const banners: BannerItem[] = destinations && destinations.length > 0
-    ? destinations.slice(0, 3).map((d) => ({
-        id: String(d.id),
-        image: d.photo_urls?.[0] ?? FALLBACK_BANNERS[0].image,
-        title: d.place_name,
-      }))
-    : FALLBACK_BANNERS;
+  const banners: BannerItem[] = FALLBACK_BANNERS;
 
   // Auto-scroll setiap 3.5 detik
   useEffect(() => {

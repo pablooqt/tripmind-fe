@@ -9,10 +9,11 @@ import {
   ActivityIndicator,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { DestinationCard } from '@/services/api';
+import { DestinationCard, getFirstPhotoUrl } from '@/services/api';
 import { COLORS } from './colors';
 
 interface Props {
+  title?: string;
   destinations: DestinationCard[];
   loading?: boolean;
   onSeeAll?: () => void;
@@ -28,12 +29,25 @@ const formatTag = (tag: string): string => {
     .join(' ');
 };
 
-export default function TopPlacesSection({ destinations, loading, onSeeAll, onCardPress }: Props) {
+// Komponen Image pintar dengan fallback otomatis jika url rusak/expired (error 400)
+function SafeImage({ source, defaultSource, style, ...props }: any) {
+  const [hasError, setHasError] = React.useState(false);
+  return (
+    <Image
+      {...props}
+      source={hasError || !source.uri ? defaultSource : source}
+      style={style}
+      onError={() => setHasError(true)}
+    />
+  );
+}
+
+export default function TopPlacesSection({ title, destinations, loading, onSeeAll, onCardPress }: Props) {
   return (
     <View>
       {/* Section Header */}
       <View style={styles.header}>
-        <Text style={styles.title}>Top Must Visit Places</Text>
+        <Text style={styles.title}>{title || 'Top Must Visit Places'}</Text>
         <TouchableOpacity onPress={onSeeAll}>
           <Text style={styles.seeAll}>See All</Text>
         </TouchableOpacity>
@@ -63,11 +77,11 @@ export default function TopPlacesSection({ destinations, loading, onSeeAll, onCa
               activeOpacity={0.88}
               onPress={() => onCardPress?.(dest)}
             >
-              {/* Image */}
-              <Image
-                source={{ uri: dest.photo_urls?.[0] ?? '' }}
+              {/* Image dengan SafeImage Fallback */}
+              <SafeImage
+                source={{ uri: getFirstPhotoUrl(dest.photo_urls) }}
+                defaultSource={require('@/assets/images/misty_mountains.png')}
                 style={styles.image}
-                defaultSource={{ uri: 'https://images.unsplash.com/photo-1537996194471-e657df975ab4?w=400' }}
               />
 
               {/* Category Tag */}
@@ -145,6 +159,7 @@ const styles = StyleSheet.create({
   list: {
     paddingLeft: 20,
     paddingRight: 8,
+    paddingVertical: 10,
   },
 
   // Loading / Empty

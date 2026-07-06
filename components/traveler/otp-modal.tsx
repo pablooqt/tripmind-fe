@@ -11,23 +11,27 @@ import { Ionicons } from '@expo/vector-icons';
 interface OtpModalProps {
   visible: boolean;
   onClose: () => void;
-  onVerify: () => void;
+  onVerify: (otpCode: string) => void;
   email: string;
 }
 
 export default function OtpModal({ visible, onClose, onVerify, email }: OtpModalProps) {
-  const [otp, setOtp] = useState<string[]>(['', '', '', '']);
+  const [otp, setOtp] = useState<string[]>(['', '', '', '', '', '', '', '']);
 
   const otpRef0 = useRef<TextInput>(null);
   const otpRef1 = useRef<TextInput>(null);
   const otpRef2 = useRef<TextInput>(null);
   const otpRef3 = useRef<TextInput>(null);
+  const otpRef4 = useRef<TextInput>(null);
+  const otpRef5 = useRef<TextInput>(null);
+  const otpRef6 = useRef<TextInput>(null);
+  const otpRef7 = useRef<TextInput>(null);
 
-  const otpRefs = [otpRef0, otpRef1, otpRef2, otpRef3];
+  const otpRefs = [otpRef0, otpRef1, otpRef2, otpRef3, otpRef4, otpRef5, otpRef6, otpRef7];
 
   useEffect(() => {
     if (visible) {
-      setOtp(['', '', '', '']);
+      setOtp(['', '', '', '', '', '', '', '']);
       setTimeout(() => {
         otpRefs[0].current?.focus();
       }, 100);
@@ -39,7 +43,7 @@ export default function OtpModal({ visible, onClose, onVerify, email }: OtpModal
     newOtp[index] = value.slice(-1);
     setOtp(newOtp);
 
-    if (value !== '' && index < 3) {
+    if (value !== '' && index < 7) {
       otpRefs[index + 1].current?.focus();
     }
   };
@@ -52,11 +56,11 @@ export default function OtpModal({ visible, onClose, onVerify, email }: OtpModal
 
   const handleVerify = () => {
     const enteredOtp = otp.join('');
-    if (enteredOtp.length < 4) {
-      alert('Harap isi lengkap 4-digit kode keamanan');
+    if (enteredOtp.length < 8) {
+      alert('Harap isi lengkap 8-digit kode keamanan dari email Anda');
       return;
     }
-    onVerify();
+    onVerify(enteredOtp);
   };
 
   return (
@@ -77,11 +81,11 @@ export default function OtpModal({ visible, onClose, onVerify, email }: OtpModal
       >
         <View 
           style={{
-            width: '90%',
-            maxWidth: 340,
+            width: '95%',
+            maxWidth: 360,
             backgroundColor: '#FFFFFF',
             borderRadius: 28,
-            padding: 24,
+            padding: 20,
             position: 'relative'
           }}
           className="shadow-2xl"
@@ -109,12 +113,13 @@ export default function OtpModal({ visible, onClose, onVerify, email }: OtpModal
           <Text className="text-xl font-bold text-center text-brand-950 mb-2">
             Enter Security Code
           </Text>
-          <Text style={{ fontSize: 13, color: '#6B7280', textAlign: 'center', lineHeight: 20, marginBottom: 24 }}>
-            We've sent a 4-digit authentication{'\n'}code to{' '}
+          <Text style={{ fontSize: 12, color: '#6B7280', textAlign: 'center', lineHeight: 18, marginBottom: 24 }}>
+            We've sent an 8-digit authentication{'\n'}code to{' '}
             <Text style={{ fontWeight: '600', color: '#373737' }}>{email || 'hello@traveldulu.com'}</Text>
           </Text>
 
-          <View className="flex-row justify-center mb-6" style={{ gap: 16 }}>
+          {/* 8-Digit OTP Inputs Grid */}
+          <View className="flex-row justify-center mb-6" style={{ gap: 5 }}>
             {otp.map((digit, index) => (
               <TextInput
                 key={index}
@@ -126,13 +131,13 @@ export default function OtpModal({ visible, onClose, onVerify, email }: OtpModal
                 maxLength={1}
                 selectTextOnFocus
                 style={{
-                  width: 54,
-                  height: 54,
+                  width: 32,
+                  height: 48,
                   borderWidth: 1.5,
                   borderColor: digit !== '' ? '#196660' : '#E5E7EB',
-                  borderRadius: 16,
+                  borderRadius: 10,
                   textAlign: 'center',
-                  fontSize: 24,
+                  fontSize: 18,
                   fontWeight: 'bold',
                   color: '#373737',
                   backgroundColor: '#FFFFFF',
@@ -158,7 +163,7 @@ export default function OtpModal({ visible, onClose, onVerify, email }: OtpModal
               elevation: 4,
             }}
           >
-            <Text className="text-white font-bold text-lg text-center">
+            <Text className="text-white font-bold text-base text-center">
               Verify Code
             </Text>
           </TouchableOpacity>

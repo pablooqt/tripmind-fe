@@ -14,7 +14,9 @@ import {
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
-import { getRecommendationsByPreference } from '@/services/api';
+import * as Location from 'expo-location';
+import { getRecommendationsByPreference, submitTravelerProfiling } from '@/services/api';
+import { useAuth } from '@/context/AuthContext';
 
 const getMaxDays = (monthStr: string, yearStr: string): number => {
   const m = parseInt(monthStr, 10);
@@ -41,17 +43,18 @@ const getMaxDays = (monthStr: string, yearStr: string): number => {
 
 export default function TravelerProfiling() {
   const router = useRouter();
+  const { setUserLocation } = useAuth();
   const { width: screenWidth, height: screenHeight } = useWindowDimensions();
   const scrollViewRef = useRef<ScrollView>(null);
 
   const [currentStep, setCurrentStep] = useState<number>(0);
   const [name, setName] = useState<string>('');
   const [birthday, setBirthday] = useState({ month: '', day: '', year: '' });
-  const [selectedVibes, setSelectedVibes] = useState<string[]>(['Beach & Sunset', 'Hidden Gems', 'Photography Spots']);
-  const [selectedSpeed, setSelectedSpeed] = useState<string>('Balanced');
-  const [selectedDiets, setSelectedDiets] = useState<string[]>(['Halal Friendly', 'Seafood Allergy']);
-  const [selectedSpice, setSelectedSpice] = useState<string>('Mild');
-  const [selectedPersona, setSelectedPersona] = useState<string>('The Social Butterfly');
+  const [selectedVibes, setSelectedVibes] = useState<string[]>([]);
+  const [selectedSpeed, setSelectedSpeed] = useState<string>('');
+  const [selectedDiets, setSelectedDiets] = useState<string[]>([]);
+  const [selectedSpice, setSelectedSpice] = useState<string>('');
+  const [selectedPersona, setSelectedPersona] = useState<string>('');
 
   const [showNotificationModal, setShowNotificationModal] = useState<boolean>(false);
 
@@ -61,6 +64,26 @@ export default function TravelerProfiling() {
       animated: true,
     });
   }, [currentStep, screenWidth]);
+
+  const handleRequestLocation = async () => {
+    try {
+      const { status } = await Location.requestForegroundPermissionsAsync();
+      if (status === 'granted') {
+        const currentLoc = await Location.getCurrentPositionAsync({});
+        console.log('[Profiling] Traveler GPS Location retrieved:', currentLoc.coords);
+        setUserLocation({
+          latitude: currentLoc.coords.latitude,
+          longitude: currentLoc.coords.longitude
+        });
+      } else {
+        console.log('[Profiling] Traveler location permission denied.');
+      }
+    } catch (err) {
+      console.warn('[Profiling] Failed to request location:', err);
+    } finally {
+      setCurrentStep(1);
+    }
+  };
 
   const handleMonthChange = (val: string) => {
     const clean = val.replace(/[^0-9]/g, '');
@@ -154,6 +177,32 @@ export default function TravelerProfiling() {
       }
     }
 
+    if (currentStep === 2) {
+      if (selectedVibes.length === 0) {
+        Alert.alert('Pilih Vibe Anda', 'Tolong pilih setidaknya satu vibe Bali yang menarik minat Anda.');
+        return;
+      }
+      if (!selectedSpeed) {
+        Alert.alert('Pilih Kecepatan Perjalanan', 'Tolong pilih seberapa cepat Anda ingin berpindah tempat wisata.');
+        return;
+      }
+    }
+
+    if (currentStep === 3) {
+      if (!selectedSpice) {
+        Alert.alert('Pilih Toleransi Pedas', 'Tolong pilih tingkat toleransi makanan pedas Anda.');
+        return;
+      }
+      // Diet / Alergi boleh kosong (opsional)
+    }
+
+    if (currentStep === 4) {
+      if (!selectedPersona) {
+        Alert.alert('Pilih Persona Wisata', 'Tolong pilih tipe persona liburan yang paling menggambarkan diri Anda.');
+        return;
+      }
+    }
+
     if (currentStep < 5) {
       setCurrentStep(prev => prev + 1);
     } else {
@@ -163,17 +212,47 @@ export default function TravelerProfiling() {
 
   const handleNotificationPermission = () => {
     setShowNotificationModal(false);
-    const dobString = `${birthday.month.padStart(2, '0')}/${birthday.day.padStart(2, '0')}/${birthday.year}`;
-    getRecommendationsByPreference({
-      user_preferences: [selectedPersona, ...selectedVibes],
-      dob_string: dobString,
-      mode: 'exploration',
-      limit: 6,
-    }).catch((error) => {
-      console.warn('Gagal prefetch rekomendasi:', error);
-    });
+    
+    // Format YYYY-MM-DD
+    const dobString = `${birthday.year}-${birthday.month.padStart(2, '0')}-${birthday.day.padStart(2, '0')}`;
+    
+    // Susun payload preferensi sesuai kategori dan nilai Pydantic
+    const preferencesPayload = [
+      ...selectedVibes.map(vibe => ({
+        preference_category: 'bali_vibe',
+        preference_value: vibe
+      })),
+      {
+        preference_category: 'move_pace',
+        preference_value: selectedSpeed
+      },
+      ...selectedDiets.map(diet => ({
+        preference_category: 'diet_allergy',
+        preference_value: diet
+      })),
+      {
+        preference_category: 'spice_tolerance',
+        preference_value: selectedSpice
+      },
+      {
+        preference_category: 'travel_persona',
+        preference_value: selectedPersona
+      }
+    ];
 
-    router.replace('/(tabs)/explore');
+    submitTravelerProfiling({
+      name: name.trim(),
+      birth_date: dobString,
+      preferences: preferencesPayload
+    })
+      .then(() => {
+        router.replace('/(tabs)/explore');
+      })
+      .catch((error) => {
+        console.warn('Gagal menyimpan profil preferensi:', error);
+        alert('Gagal menyimpan preferensi Anda ke server. Masuk ke aplikasi...');
+        router.replace('/(tabs)/explore');
+      });
   };
 
   const handleBack = () => {
@@ -295,7 +374,7 @@ export default function TravelerProfiling() {
                 </Text>
                 {renderWhyAsk("why ask? so our ai can handle the traffic math for you and keep your journey smooth.")}
                 <TouchableOpacity
-                  onPress={() => setCurrentStep(1)}
+                  onPress={handleRequestLocation}
                   activeOpacity={0.9}
                   className="w-full bg-brand-700 py-4.5 rounded-2xl items-center justify-center shadow-lg shadow-brand-700/25"
                 >

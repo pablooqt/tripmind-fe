@@ -1,4 +1,4 @@
-import React, { useCallback } from 'react';
+import React, { useCallback, useState } from 'react';
 import { View, Text, Image, StyleSheet, Dimensions } from 'react-native';
 import { GestureDetector, Gesture } from 'react-native-gesture-handler';
 import Animated, {
@@ -11,7 +11,7 @@ import Animated, {
   Extrapolation,
 } from 'react-native-reanimated';
 import { Ionicons } from '@expo/vector-icons';
-import { DestinationCard } from '@/services/api';
+import { DestinationCard, getFirstPhotoUrl } from '@/services/api';
 import { COLORS } from '@/components/home/colors';
 
 const { width: W } = Dimensions.get('window');
@@ -25,6 +25,19 @@ const formatTag = (tag: string): string => {
     .map(word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
     .join(' ');
 };
+
+// Komponen Image pintar dengan fallback otomatis jika url rusak/expired (error 400)
+function SafeImage({ source, defaultSource, style, ...props }: any) {
+  const [hasError, setHasError] = useState(false);
+  return (
+    <Image
+      {...props}
+      source={hasError || !source.uri ? defaultSource : source}
+      style={style}
+      onError={() => setHasError(true)}
+    />
+  );
+}
 
 // ─── Types ──────────────────────────────────────────────────────────────────
 interface Props {
@@ -110,9 +123,9 @@ export default function ExploreCard({ destination, onLike, onSkip, stackIndex = 
   return (
     <GestureDetector gesture={pan}>
       <Animated.View style={[styles.card, cardStyle, !isTop && styles.cardBehind]}>
-        {/* Destination Image */}
-        <Image
-          source={{ uri: destination.photo_urls?.[0] }}
+        {/* Destination Image dengan SafeImage Fallback */}
+        <SafeImage
+          source={{ uri: getFirstPhotoUrl(destination.photo_urls) }}
           style={styles.image}
           defaultSource={require('@/assets/images/misty_mountains.png')}
         />
