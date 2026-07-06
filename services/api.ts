@@ -32,6 +32,7 @@ export interface DestinationCard {
   rating: number;
   opening_hours: string;
   ai_context?: string;
+  regency?: string;
   type: string; // "preference" | "exploration_random" | "similar_destination"
 }
 
@@ -53,8 +54,15 @@ export interface SimilarRequest {
 
 async function apiRequest<T>(endpoint: string, options: RequestInit = {}): Promise<T> {
   const url = `${BASE_URL}${endpoint}`;
+  
+  const headers: Record<string, string> = { "Content-Type": "application/json" };
+  const globalToken = (global as any).apiToken;
+  if (globalToken) {
+    headers["Authorization"] = `Bearer ${globalToken}`;
+  }
+
   const response = await fetch(url, {
-    headers: { "Content-Type": "application/json", ...options.headers },
+    headers: { ...headers, ...options.headers },
     ...options,
   });
   if (!response.ok) {
@@ -96,7 +104,7 @@ export async function checkGatewayHealth(): Promise<boolean> {
 export async function getRecommendationsByPreference(
   params: PreferenceRequest
 ): Promise<DestinationCard[]> {
-  return apiRequest<DestinationCard[]>("/ai/recommendation/preferences", {
+  return apiRequest<DestinationCard[]>("/ai/recommendation/api/v1/preferences", {
     method: "POST",
     body: JSON.stringify({
       user_preferences: params.user_preferences,
@@ -125,3 +133,88 @@ export async function getSimilarDestinations(
     }),
   });
 }
+
+// ============================================================
+//  Preferences & Saved Onboarding Profiling
+// ============================================================
+
+export interface PreferenceItem {
+  preference_category: string; // 'bali_vibe' | 'move_pace' | 'diet_allergy' | 'spice_tolerance' | 'travel_persona'
+  preference_value: string;
+}
+
+export interface ProfilingRequest {
+  name?: string;
+  birth_date?: string; // YYYY-MM-DD
+  preferences: PreferenceItem[];
+}
+
+/** Menyimpan profil awal traveler dan preferensi liburan ke database */
+export async function submitTravelerProfiling(
+  payload: ProfilingRequest
+): Promise<{ status: string; message: string }> {
+  return apiRequest<{ status: string; message: string }>("/api/v1/preferences/profile", {
+    method: "POST",
+    body: JSON.stringify(payload),
+  });
+}
+
+/** Mengambil daftar destinasi rekomendasi AI berdasarkan profil preferensi traveler di database */
+export async function getRecommendationsFromProfile(params: {
+  mode?: "normal" | "exploration";
+  limit?: number;
+}): Promise<DestinationCard[]> {
+  const mode = params.mode ?? "normal";
+  const limit = params.limit ?? 6;
+  const response = await apiRequest<{ status: string; data: DestinationCard[] }>(
+    `/api/v1/preferences/recommendations?mode=${mode}&limit=${limit}`
+  );
+  return response.data || [];
+}
+
+/** Mengambil daftar destinasi umum (bisa difilter kota/kabupaten) */
+export async function getDestinations(params?: {
+  regency?: string;
+  min_rating?: number;
+  limit?: number;
+}): Promise<DestinationCard[]> {
+  const queryParams = [];
+  if (params?.regency) queryParams.push(`regency=${params.regency}`);
+  if (params?.min_rating) queryParams.push(`min_rating=${params.min_rating}`);
+  if (params?.limit) queryParams.push(`limit=${params.limit}`);
+  const queryString = queryParams.length > 0 ? `?${queryParams.join("&")}` : "";
+  
+  const response = await apiRequest<{ status: string; data: DestinationCard[] }>(
+    `/api/v1/destinations${queryString}`
+  );
+  return response.data || [];
+}
+
+/** Helper aman untuk mengambil URL foto pertama dari berbagai format database */
+export const getFirstPhotoUrl = (photoUrls: any): string => {
+  if (!photoUrls) return '';
+  if (Array.isArray(photoUrls)) {
+    return photoUrls[0] || '';
+  }
+  if (typeof photoUrls === 'string') {
+    let cleaned = photoUrls.trim();
+    // Tangani format Postgres array raw: {url1,url2} atau {"url1","url2"}
+    if (cleaned.startsWith('{') && cleaned.endsWith('}')) {
+      cleaned = cleaned.substring(1, cleaned.length - 1);
+      const split = cleaned.split(',');
+      return (split[0] || '').replace(/["']/g, '').trim();
+    }
+    // Tangani format JSON string: ["url1","url2"]
+    try {
+      const parsed = JSON.parse(cleaned);
+      if (Array.isArray(parsed)) {
+        return parsed[0] || '';
+      }
+    } catch {
+      // ignore
+    }
+    // Tangani string tunggal (mungkin masih mengandung tanda kutip jika salah format)
+    return cleaned.replace(/["']/g, '').trim();
+  }
+  return '';
+};
