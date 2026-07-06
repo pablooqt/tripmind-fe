@@ -27,6 +27,7 @@ export default function RootLayout() {
             <Stack.Screen name="create-trip" options={{ headerShown: false }} />
             <Stack.Screen name="regency/[name]" options={{ headerShown: false }} />
             <Stack.Screen name="destinations-list" options={{ headerShown: false }} />
+            <Stack.Screen name="destination/[id]" options={{ headerShown: false }} />
             <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
             <Stack.Screen name="modal" options={{ presentation: 'modal', title: 'Modal' }} />
           </Stack>

@@ -101,7 +101,10 @@ export default function DestinationsListScreen() {
       activeOpacity={0.9}
       style={styles.card}
       onPress={() => {
-        alert(`Melihat detail: ${item.place_name}`);
+        router.push({
+          pathname: '/destination/[id]',
+          params: { id: item.id }
+        });
       }}
     >
       <SafeImage
