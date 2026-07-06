@@ -6,7 +6,7 @@ import { Ionicons } from '@expo/vector-icons';
 import ExploreHeader from '@/components/explore/ExploreHeader';
 import ExploreTabs    from '@/components/explore/ExploreTabs';
 import ExploreCard    from '@/components/explore/ExploreCard';
-import { DestinationCard, getRecommendationsByPreference } from '@/services/api';
+import { DestinationCard, getRecommendationsByPreference, getRecommendationsFromProfile } from '@/services/api';
 import { COLORS } from '@/components/home/colors';
 
 // Number of cards visible in deck (top + behind)
@@ -20,14 +20,23 @@ export default function ExploreScreen() {
 
   // ── Fetch data ─────────────────────────────────────────────────────────
   useEffect(() => {
-    getRecommendationsByPreference({
-      user_preferences: ['Hidden Gems', 'Beach & Sunset', 'Cultural & Heritage', 'Adventure'],
-      dob_string: '01/01/1995',
+    getRecommendationsFromProfile({
       mode: 'exploration',
       limit: 20,
     })
       .then(setDests)
-      .catch((e) => console.warn('[Explore]', e))
+      .catch((e) => {
+        console.warn('[Explore] Gagal mengambil profil rekomendasi, mencoba fallback:', e);
+        // Fallback default
+        getRecommendationsByPreference({
+          user_preferences: ['Hidden Gems', 'Beach & Sunset', 'Cultural & Heritage', 'Adventure'],
+          dob_string: '01/01/1995',
+          mode: 'exploration',
+          limit: 20,
+        })
+          .then(setDests)
+          .catch((fallbackErr) => console.warn('[Explore] Fallback gagal:', fallbackErr));
+      })
       .finally(() => setLoading(false));
   }, []);
 
