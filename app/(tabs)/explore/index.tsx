@@ -1,5 +1,5 @@
 import React, { useState, useCallback, useEffect } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, ActivityIndicator, Modal } from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet, ActivityIndicator, Modal, ScrollView, RefreshControl } from 'react-native';
 import * as Haptics from 'expo-haptics';
 import { Ionicons } from '@expo/vector-icons';
 import Animated, { useSharedValue, useAnimatedStyle, interpolate, Extrapolation } from 'react-native-reanimated';
@@ -44,12 +44,37 @@ const formatDob = (birthDateStr: string | null): string => {
   return '01/01/2000';
 };
 
+const isRestaurant = (dest: DestinationCard): boolean => {
+  if (!dest) return false;
+  const cat = (dest.category || '').toLowerCase();
+  
+  let tagsList: string[] = [];
+  if (dest.tags) {
+    if (Array.isArray(dest.tags)) {
+      tagsList = (dest.tags as any[]).map(t => String(t).toLowerCase());
+    } else if (typeof dest.tags === 'string') {
+      // Tangani string postgres array raw atau comma-separated string
+      tagsList = (dest.tags as string).toLowerCase().split(/[,\s{}'"]+/);
+    }
+  }
+
+
+  const culinaryKeywords = ['culinary', 'restaurant', 'food', 'cafe', 'warung', 'bite', 'taste', 'dining', 'bites'];
+  
+  const hasCulinaryCategory = culinaryKeywords.some(kw => cat.includes(kw));
+  const hasCulinaryTags = tagsList.some(t => culinaryKeywords.some(kw => t.includes(kw)));
+  
+  return hasCulinaryCategory || hasCulinaryTags;
+};
+
+
 export default function ExploreScreen() {
-  const [tab, setTab]             = useState<'overview' | 'itinerary'>('overview');
+  const [tab, setTab]             = useState<'destination' | 'restaurant'>('destination');
   const [destinations, setDests]  = useState<DestinationCard[]>([]);
   const [index, setIndex]         = useState(0);
   const [loading, setLoading]     = useState(true);
   const { isAuthenticated }       = useAuth();
+
 
   const x = useSharedValue(0);
   const y = useSharedValue(0);
@@ -69,6 +94,39 @@ export default function ExploreScreen() {
   const [toastMessage, setToastMessage] = useState('');
   const [toastType, setToastType] = useState<'success' | 'error' | 'info'>('success');
 
+  // State untuk RefreshControl
+  const [refreshing, setRefreshing] = useState(false);
+
+  // ── Saring Destinasi berdasarkan Tab ──────────────────────────────────
+  const filteredDestinations = destinations.filter((dest) => {
+    const isRest = isRestaurant(dest);
+    return tab === 'restaurant' ? isRest : !isRest;
+  });
+
+
+  const onRefresh = useCallback(() => {
+    setRefreshing(true);
+    getRecommendationsFromProfile({
+      mode: 'exploration',
+      limit: 20,
+    })
+      .then((data) => {
+        setDests(data);
+        setIndex(0);
+        setIsExplorationMode(false);
+        setSkipCount(0);
+        setToastMessage('Explore deck refreshed successfully!');
+        setToastType('success');
+        setToastVisible(true);
+      })
+      .catch((e) => {
+        console.warn('[Explore] Gagal me-refresh deck:', e);
+        setToastMessage('Failed to refresh explore deck.');
+        setToastType('error');
+        setToastVisible(true);
+      })
+      .finally(() => setRefreshing(false));
+  }, []);
 
   // ── Fetch rekomendasi destinasi ─────────────────────────────────────────
   useEffect(() => {
@@ -127,11 +185,11 @@ export default function ExploreScreen() {
 
   // ── Actions ────────────────────────────────────────────────────────────
   const advance = useCallback(() => {
-    setIndex((prev) => Math.min(prev + 1, destinations.length));
-  }, [destinations.length]);
+    setIndex((prev) => Math.min(prev + 1, filteredDestinations.length));
+  }, [filteredDestinations.length]);
 
   const handleLike = useCallback(async () => {
-    const currentDest = destinations[index];
+    const currentDest = filteredDestinations[index];
     if (!currentDest) return;
 
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
@@ -160,7 +218,8 @@ export default function ExploreScreen() {
     }
 
     advance();
-  }, [index, destinations, isAuthenticated, userFavorites, advance]);
+  }, [index, filteredDestinations, isAuthenticated, userFavorites, advance]);
+
 
   const handleSkip = useCallback(() => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
@@ -243,8 +302,9 @@ export default function ExploreScreen() {
 
   // Handler toggle favorite dari tombol tengah bawah
   const handleToggleFavorite = async () => {
-    const currentDest = destinations[index];
+    const currentDest = filteredDestinations[index];
     if (!currentDest) return;
+
 
     if (!isAuthenticated) {
       setToastMessage('Please login first to manage favorites!');
@@ -280,12 +340,19 @@ export default function ExploreScreen() {
     }
   };
 
+  // Handler untuk mendeteksi perubahan tab (reset index deck kartu)
+  const handleTabChange = (newTab: 'destination' | 'restaurant') => {
+    setTab(newTab);
+    setIndex(0);
+    setSkipCount(0);
+  };
+
   // ── Deck slice ─────────────────────────────────────────────────────────
-  const deck = destinations.slice(index, index + DECK_SIZE);
-  const isFinished = !loading && destinations.length > 0 && index >= destinations.length;
+  const deck = filteredDestinations.slice(index, index + DECK_SIZE);
+  const isFinished = !loading && filteredDestinations.length > 0 && index >= filteredDestinations.length;
 
   // Cek apakah destinasi teratas saat ini sudah difavoritkan
-  const currentDest = destinations[index];
+  const currentDest = filteredDestinations[index];
   const isCurrentDestFavorite = currentDest ? userFavorites.includes(currentDest.id) : false;
 
   // Animasi untuk stamp indikator geser di tingkat screen (tetap diam/tidak ikut miring)
@@ -301,7 +368,8 @@ export default function ExploreScreen() {
   return (
     <View style={styles.root}>
       <ExploreHeader />
-      <ExploreTabs active={tab} onChange={setTab} />
+      <ExploreTabs active={tab} onChange={handleTabChange} />
+
 
       {/* Card Stack */}
       <View style={styles.stack}>
@@ -311,7 +379,18 @@ export default function ExploreScreen() {
             <Text style={styles.loadingText}>Finding destinations...</Text>
           </View>
         ) : isFinished ? (
-          <View style={styles.center}>
+          <ScrollView
+            contentContainerStyle={styles.centerScroll}
+            showsVerticalScrollIndicator={false}
+            refreshControl={
+              <RefreshControl
+                refreshing={refreshing}
+                onRefresh={onRefresh}
+                tintColor="#1C857C"
+                colors={['#1C857C']}
+              />
+            }
+          >
             <Ionicons name="checkmark-circle-outline" size={56} color={COLORS.brand700} />
             <Text style={styles.emptyTitle}>You've seen them all!</Text>
             <TouchableOpacity style={styles.restartBtn} onPress={() => setIndex(0)}>
@@ -325,7 +404,7 @@ export default function ExploreScreen() {
                 <Text style={styles.restartText}>Back to My Preferences</Text>
               </TouchableOpacity>
             )}
-          </View>
+          </ScrollView>
         ) : (
           [...deck].reverse().map((dest, revIdx) => {
             const stackIndex = deck.length - 1 - revIdx; // 0 = top
@@ -419,6 +498,12 @@ const styles = StyleSheet.create({
   stack:   { flex: 1, position: 'relative', marginTop: 8 },
 
   center: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 12 },
+  centerScroll: {
+    flexGrow: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 12,
+  },
   loadingText: { fontSize: 14, color: COLORS.gray500 },
   emptyTitle:  { fontSize: 18, fontWeight: '700', color: COLORS.brand900 },
   restartBtn:  { marginTop: 8, paddingHorizontal: 24, paddingVertical: 10, backgroundColor: COLORS.brand700, borderRadius: 20 },
