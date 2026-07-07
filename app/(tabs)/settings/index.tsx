@@ -7,10 +7,8 @@ import SafeHeaderWrapper from '@/components/common/SafeHeaderWrapper';
 export default function SettingsScreen() {
   return (
     <View style={styles.root}>
-      {/* Header */}
-      <SafeHeaderWrapper>
-        <Text style={styles.title}>Settings</Text>
-      </SafeHeaderWrapper>
+      {/* Spasi area aman status bar */}
+      <SafeHeaderWrapper containerStyle={{ height: 0, paddingVertical: 0 }} />
 
       {/* Settings List */}
       <SettingsList />
@@ -19,6 +17,5 @@ export default function SettingsScreen() {
 }
 
 const styles = StyleSheet.create({
-  root: { flex: 1, backgroundColor: COLORS.bg },
-  title: { fontSize: 22, fontWeight: '800', color: COLORS.brand900, letterSpacing: -0.5 },
+  root: { flex: 1, backgroundColor: COLORS.white },
 });

@@ -12,16 +12,18 @@ import {
   Image,
   SafeAreaView,
   StatusBar,
+  Linking,
 } from 'react-native';
-import { useLocalSearchParams, useRouter } from 'expo-router';
+import { useLocalSearchParams, useRouter, Stack } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '@/context/AuthContext';
 import { useChatWebSocket, ChatMessage } from '@/hooks/useChatWebSocket';
-import { getRoomMessages, confirmTripBooking, rejectTripBooking } from '@/services/api';
+import { getRoomMessages, confirmTripBooking, rejectTripBooking, getUserChatRooms, checkoutTripOrder } from '@/services/api';
 import { COLORS } from '@/components/home/colors';
+import SafeHeaderWrapper from '@/components/common/SafeHeaderWrapper';
 
 export default function ChatRoomScreen() {
-  const { id: roomId } = useLocalSearchParams();
+  const { id: roomId, name: queryName } = useLocalSearchParams();
   const router = useRouter();
   const { token, profile } = useAuth();
   
@@ -35,6 +37,19 @@ export default function ChatRoomScreen() {
   const [actionLoading, setActionLoading] = useState(false);
   const [otherPartyName, setOtherPartyName] = useState('Chat Room');
   const [itineraryId, setItineraryId] = useState<number | null>(null);
+
+  useEffect(() => {
+    if (queryName) {
+      setOtherPartyName(queryName as string);
+    } else {
+      getUserChatRooms().then(rooms => {
+        const currentRoom = rooms.find(r => r.room_id === roomId);
+        if (currentRoom?.other_party_name) {
+          setOtherPartyName(currentRoom.other_party_name);
+        }
+      }).catch(err => console.log('Gagal memuat nama lawan bicara:', err));
+    }
+  }, [roomId, queryName]);
 
   const flatListRef = useRef<FlatList>(null);
 
@@ -113,9 +128,33 @@ export default function ChatRoomScreen() {
     }
   };
 
+  // Traveler melakukan pembayaran
+  const handlePayNow = async (tripId: number) => {
+    try {
+      setActionLoading(true);
+      const orderData = await checkoutTripOrder(tripId);
+      const redirectUrl = orderData?.redirect_url;
+      if (redirectUrl) {
+        alert('Opening Midtrans Sandbox payment...');
+        Linking.openURL(redirectUrl);
+      } else {
+        alert('Failed to obtain payment URL from Midtrans.');
+      }
+    } catch (e: any) {
+      console.warn('[ChatRoom] Gagal checkout:', e);
+      alert(e.message || 'Payment checkout failed.');
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
   const formatTime = (isoString: string) => {
     try {
-      const date = new Date(isoString);
+      let formattedStr = isoString;
+      if (isoString && !isoString.endsWith('Z') && !isoString.includes('+') && !isoString.match(/-\d{2}:\d{2}$/)) {
+        formattedStr = isoString + 'Z';
+      }
+      const date = new Date(formattedStr);
       const hours = String(date.getHours()).padStart(2, '0');
       const minutes = String(date.getMinutes()).padStart(2, '0');
       return `${hours}:${minutes}`;
@@ -144,7 +183,7 @@ export default function ChatRoomScreen() {
           {/* Badge Status */}
           <View style={styles.statusBadgeContainer}>
             <Text style={styles.statusLabel}>Status: </Text>
-            <View style={[styles.statusBadge, styles[`statusBadge_${statusVal}`]]}>
+            <View style={[styles.statusBadge, (styles as any)[`statusBadge_${statusVal}`]]}>
               <Text style={styles.statusText}>{statusVal.toUpperCase()}</Text>
             </View>
           </View>
@@ -186,9 +225,14 @@ export default function ChatRoomScreen() {
             profile?.role === 'user' ? (
               <TouchableOpacity
                 style={styles.payNowBtn}
-                onPress={() => alert('Midtrans Simulator: Payment success!')}
+                onPress={() => handlePayNow(tripId)}
+                disabled={actionLoading}
               >
-                <Text style={styles.payNowBtnText}>Pay Now</Text>
+                {actionLoading ? (
+                  <ActivityIndicator size="small" color="#FFFFFF" />
+                ) : (
+                  <Text style={styles.payNowBtnText}>Pay Now</Text>
+                )}
               </TouchableOpacity>
             ) : (
               <Text style={styles.pendingGuideHint}>Waiting for traveler payment...</Text>
@@ -233,30 +277,36 @@ export default function ChatRoomScreen() {
     );
   };
 
+  const actionCardMsg = messages.find(m => m.sender_role === 'system' && m.content?.metadata?.action_card);
+  const chatMessagesList = messages.filter(m => !(m.sender_role === 'system' && m.content?.metadata?.action_card));
+
   return (
     <SafeAreaView style={styles.container}>
+      <Stack.Screen options={{ headerShown: false }} />
       <StatusBar barStyle="dark-content" />
-      {/* Header Obrolan */}
-      <View style={styles.header}>
-        <TouchableOpacity style={styles.backBtn} onPress={() => router.back()}>
-          <Ionicons name="arrow-back" size={24} color={COLORS.brand950} />
-        </TouchableOpacity>
-        
-        <View style={styles.headerProfile}>
-          <View style={styles.avatarPlaceholder}>
-            <Ionicons name="person" size={20} color={COLORS.gray400} />
-          </View>
-          <View style={styles.headerTextContainer}>
-            <Text style={styles.headerName}>{otherPartyName}</Text>
-            <View style={styles.statusRow}>
-              <View style={[styles.statusDot, connected ? styles.onlineDot : styles.offlineDot]} />
-              <Text style={styles.statusDesc}>{connected ? 'Online' : 'Offline'}</Text>
+      {/* Header Obrolan dengan SafeHeaderWrapper */}
+      <SafeHeaderWrapper containerStyle={{ backgroundColor: COLORS.white }}>
+        <View style={styles.header}>
+          <TouchableOpacity style={styles.backBtn} onPress={() => router.back()}>
+            <Ionicons name="arrow-back" size={24} color={COLORS.brand950} />
+          </TouchableOpacity>
+          
+          <View style={styles.headerProfile}>
+            <View style={styles.avatarPlaceholder}>
+              <Ionicons name="person" size={20} color={COLORS.gray400} />
+            </View>
+            <View style={styles.headerTextContainer}>
+              <Text style={styles.headerName}>{otherPartyName}</Text>
+              <View style={styles.statusRow}>
+                <View style={[styles.statusDot, connected ? styles.onlineDot : styles.offlineDot]} />
+                <Text style={styles.statusDesc}>{connected ? 'Online' : 'Offline'}</Text>
+              </View>
             </View>
           </View>
+          
+          <View style={{ width: 40 }} />
         </View>
-        
-        <View style={{ width: 40 }} />
-      </View>
+      </SafeHeaderWrapper>
 
       {/* Area Pesan Chat */}
       <KeyboardAvoidingView
@@ -264,6 +314,9 @@ export default function ChatRoomScreen() {
         style={{ flex: 1 }}
         keyboardVerticalOffset={Platform.OS === 'ios' ? 90 : 0}
       >
+        {/* Render Action Card fixed di bawah header (di dalam KeyboardAvoidingView) */}
+        {actionCardMsg && renderActionCard(actionCardMsg)}
+
         {loadingHistory ? (
           <View style={styles.center}>
             <ActivityIndicator size="large" color="#1C857C" />
@@ -272,7 +325,7 @@ export default function ChatRoomScreen() {
         ) : (
           <FlatList
             ref={flatListRef}
-            data={messages}
+            data={chatMessagesList}
             keyExtractor={(item) => item.id}
             renderItem={renderItem}
             contentContainerStyle={styles.messagesList}
@@ -314,10 +367,9 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingHorizontal: 16,
-    paddingVertical: 12,
+    paddingVertical: 6,
     backgroundColor: COLORS.white,
-    borderBottomWidth: 1,
-    borderBottomColor: '#F3F4F6',
+    width: '100%',
   },
   backBtn: {
     padding: 6,
@@ -464,7 +516,8 @@ const styles = StyleSheet.create({
   actionCardContainer: {
     alignSelf: 'center',
     width: '95%',
-    marginVertical: 16,
+    marginTop: 8,
+    marginBottom: 8,
   },
   actionCard: {
     backgroundColor: COLORS.white,

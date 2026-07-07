@@ -485,7 +485,7 @@ const styles = StyleSheet.create({
     color: COLORS.gray500,
   },
   statusToggleContainer: {
-    alignItems: 'end',
+    alignItems: 'flex-end',
   },
   statusToggleLabel: {
     fontSize: 9,
@@ -671,7 +671,7 @@ const styles = StyleSheet.create({
   },
   guestNameText: {
     fontSize: 12.5,
-    color: COLORS.gray600,
+    color: COLORS.gray500,
     marginLeft: 6,
   },
   tripEarnText: {

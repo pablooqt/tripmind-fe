@@ -8,7 +8,7 @@ import {
   ActivityIndicator,
   SafeAreaView,
 } from 'react-native';
-import { useRouter } from 'expo-router';
+import { useRouter, Stack } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { getUserChatRooms } from '@/services/api';
 import { useAuth } from '@/context/AuthContext';
@@ -30,7 +30,11 @@ interface ChatRoom {
   updated_at: string;
 }
 
-export default function ChatListScreen() {
+interface ChatListScreenProps {
+  showBack?: boolean;
+}
+
+export default function ChatListScreen({ showBack = false }: ChatListScreenProps) {
   const router = useRouter();
   const { isAuthenticated } = useAuth();
   const [chatRooms, setChatRooms] = useState<ChatRoom[]>([]);
@@ -58,9 +62,12 @@ export default function ChatListScreen() {
     if (!timestamp) return '';
     try {
       const date = new Date(timestamp);
-      const hours = String(date.getHours()).padStart(2, '0');
+      let hours = date.getHours();
       const minutes = String(date.getMinutes()).padStart(2, '0');
-      return `${hours}:${minutes}`;
+      const ampm = hours >= 12 ? 'PM' : 'AM';
+      hours = hours % 12;
+      hours = hours ? hours : 12; // Jam '0' diset ke '12'
+      return `${hours}:${minutes} ${ampm}`;
     } catch {
       return '';
     }
@@ -69,6 +76,14 @@ export default function ChatListScreen() {
   const renderItem = ({ item }: { item: ChatRoom }) => {
     const lastMsgText = item.last_message ? item.last_message.message : 'No messages yet';
     const lastMsgTime = item.last_message ? formatLastMsgTime(item.last_message.timestamp) : '';
+    const initialLetter = item.other_party_name ? item.other_party_name.charAt(0).toUpperCase() : '?';
+
+    // Pilihan warna pastel premium untuk inisial nama
+    const colors = ['#E0F2FE', '#F0FDF4', '#FEF3C7', '#FCE7F3', '#E8F5E9', '#FFF3E0'];
+    const textColors = ['#0369A1', '#15803D', '#B45309', '#BE185D', '#2E7D32', '#E65100'];
+    const colorIdx = initialLetter.charCodeAt(0) % colors.length;
+    const avatarBg = colors[colorIdx];
+    const avatarText = textColors[colorIdx];
 
     return (
       <TouchableOpacity
@@ -77,12 +92,12 @@ export default function ChatListScreen() {
         onPress={() => {
           router.push({
             pathname: '/chat-room/[id]',
-            params: { id: item.room_id },
+            params: { id: item.room_id, name: item.other_party_name },
           } as any);
         }}
       >
-        <View style={styles.avatar}>
-          <Ionicons name="person" size={20} color={COLORS.gray400} />
+        <View style={[styles.avatar, { backgroundColor: avatarBg }]}>
+          <Text style={[styles.avatarText, { color: avatarText }]}>{initialLetter}</Text>
         </View>
 
         <View style={styles.chatDetails}>
@@ -102,13 +117,16 @@ export default function ChatListScreen() {
 
   return (
     <SafeAreaView style={styles.container}>
+      <Stack.Screen options={{ headerShown: false }} />
       <SafeHeaderWrapper>
         <View style={styles.header}>
           <TouchableOpacity style={styles.backBtn} onPress={() => router.back()}>
             <Ionicons name="arrow-back" size={24} color={COLORS.brand950} />
           </TouchableOpacity>
           <Text style={styles.headerTitle}>Messages</Text>
-          <View style={{ width: 40 }} />
+          <TouchableOpacity style={styles.menuBtn}>
+            <Ionicons name="ellipsis-vertical" size={20} color={COLORS.brand950} />
+          </TouchableOpacity>
         </View>
       </SafeHeaderWrapper>
 
@@ -147,12 +165,16 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingHorizontal: 16,
+    height: 48,
   },
   backBtn: {
     padding: 6,
   },
+  menuBtn: {
+    padding: 6,
+  },
   headerTitle: {
-    fontSize: 18,
+    fontSize: 19,
     fontWeight: '800',
     color: COLORS.brand950,
   },
@@ -178,6 +200,7 @@ const styles = StyleSheet.create({
   listContent: {
     paddingHorizontal: 16,
     paddingTop: 12,
+    paddingBottom: 100, // Safe padding for bottom tabs
   },
   chatItem: {
     flexDirection: 'row',
@@ -198,9 +221,12 @@ const styles = StyleSheet.create({
     width: 48,
     height: 48,
     borderRadius: 24,
-    backgroundColor: '#E5E7EB',
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  avatarText: {
+    fontSize: 18,
+    fontWeight: '800',
   },
   chatDetails: {
     flex: 1,
@@ -214,7 +240,7 @@ const styles = StyleSheet.create({
   },
   otherPartyName: {
     fontSize: 14.5,
-    fontWeight: '700',
+    fontWeight: '800',
     color: COLORS.brand950,
     flex: 1,
     marginRight: 8,
@@ -222,7 +248,7 @@ const styles = StyleSheet.create({
   msgTime: {
     fontSize: 10.5,
     color: COLORS.gray400,
-    fontWeight: '500',
+    fontWeight: '600',
   },
   lastMsg: {
     fontSize: 12.5,
