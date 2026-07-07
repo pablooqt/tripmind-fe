@@ -318,27 +318,24 @@ export default function ExploreCard({
             </ScrollView>
           </View>
 
-          {/* F. Tiga Tombol Aksi di Bagian Bawah Detail Card (Sesuai Gambar 2 & Instruksi Baru) */}
+          {/* F. Dua Tombol Aksi di Bagian Bawah Detail Card (Skip dan Favorite) */}
           <View style={styles.actionsRow}>
             {/* Tombol Kiri (Skip - X) */}
             <TouchableOpacity style={styles.actionBtnSkip} onPress={onSkip} activeOpacity={0.85}>
               <Ionicons name="close" size={24} color="#FFFFFF" />
             </TouchableOpacity>
 
-            {/* Tombol Tengah (Favorite - Bookmark) */}
-            <TouchableOpacity style={styles.actionBtnFav} onPress={onToggleFav} activeOpacity={0.85}>
+            {/* Tombol Kanan (Favorite - Bookmark) */}
+            <TouchableOpacity style={styles.actionBtnFav} onPress={onLike} activeOpacity={0.85}>
               <Ionicons
                 name={isFavorite ? 'bookmark' : 'bookmark-outline'}
                 size={28}
                 color="#FFFFFF"
               />
             </TouchableOpacity>
-
-            {/* Tombol Kanan (Like - Checkmark) */}
-            <TouchableOpacity style={styles.actionBtnLike} onPress={onLike} activeOpacity={0.85}>
-              <Ionicons name="checkmark" size={26} color="#FFFFFF" />
-            </TouchableOpacity>
           </View>
+
+
 
         </ScrollView>
 
@@ -570,9 +567,9 @@ const styles = StyleSheet.create({
     elevation: 2,
   },
   actionBtnFav: {
-    width: 60,
-    height: 60,
-    borderRadius: 30,
+    width: 50,
+    height: 50,
+    borderRadius: 25,
     backgroundColor: '#1C857C',
     alignItems: 'center',
     justifyContent: 'center',
@@ -581,19 +578,6 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.15,
     shadowRadius: 6,
     elevation: 4,
-  },
-  actionBtnLike: {
-    width: 50,
-    height: 50,
-    borderRadius: 25,
-    backgroundColor: '#373737',
-    alignItems: 'center',
-    justifyContent: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 2,
   },
   fixedMapButton: {
     position: 'absolute',

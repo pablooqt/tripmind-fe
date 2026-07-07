@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import {
   View,
   Text,
@@ -12,6 +12,15 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import { COLORS } from '@/components/home/colors';
+import { 
+  getUserFavorites, 
+  createNewTripItinerary, 
+  getRecommendedGuides, 
+  selectGuideForTrip 
+} from '@/services/api';
+import { useAuth } from '@/context/AuthContext';
+
+
 
 // Import Types
 import { Spot, Guide } from './create-trip/types';
@@ -24,6 +33,8 @@ import Step4GuideRecommendations from './create-trip/Step4GuideRecommendations';
 import CustomCalendarModal from './create-trip/CustomCalendarModal';
 
 export default function TravelerCreateTrip() {
+  const { isAuthenticated, profile, userLocation } = useAuth();
+
   // Flow steps: 1 (Form), 2 (Select Spots), 3 (Favorites Grid), 4 (Guides)
   const [currentStep, setCurrentStep] = useState<1 | 2 | 3 | 4>(1);
 
@@ -46,78 +57,58 @@ export default function TravelerCreateTrip() {
   // Guide state
   const [expandedGuideId, setExpandedGuideId] = useState<string | null>(null);
 
-  // Static Data
-  const availableSpots: Spot[] = [
-    {
-      id: '1',
-      name: 'Monkey Forest Ubud',
-      location: 'Ubud',
-      image: 'https://images.unsplash.com/photo-1540555700478-4be289fbecef?w=400',
-    },
-    {
-      id: '2',
-      name: 'Tirta Empul Temple',
-      location: 'Ubud',
-      image: 'https://images.unsplash.com/photo-1571730079219-c09a0665ba1d?w=400',
-    },
-    {
-      id: '3',
-      name: 'Campuhan Ridge Walk',
-      location: 'Ubud',
-      image: 'https://images.unsplash.com/photo-1537996194471-e657df975ab4?w=400',
-    },
-    {
-      id: '4',
-      name: 'Tegallalang Rice Terrace',
-      location: 'Ubud',
-      image: 'https://images.unsplash.com/photo-1552596880-cd71114e57e8?w=400',
-    },
-    {
-      id: '5',
-      name: 'Puri Saren Agung',
-      location: 'Ubud',
-      image: 'https://images.unsplash.com/photo-1588668214407-6eb952709490?w=400',
-    },
-    {
-      id: '6',
-      name: 'Uluwatu Temple',
-      location: 'Badung',
-      image: 'https://images.unsplash.com/photo-1625127188970-875185966a4c?w=400',
-    },
-  ];
+  // Available Spots (diambil dari database favorit pengguna)
+  const [availableSpots, setAvailableSpots] = useState<Spot[]>([]);
 
-  const guides: Guide[] = [
-    {
-      id: 'g1',
-      name: 'Bli Ketut Artat',
-      rating: 4.6,
-      tripsCount: 120,
-      price: 'Rp500.000 / Hari',
-      badges: ['Bisa Mobil', 'Spesialis Pura'],
-      avatar: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=200',
-      bio: 'Hello! I have been guiding travelers in Bali for over 10 years. I specialize in temple heritage tours and own a comfortable 6-seater car for custom road trips.',
-    },
-    {
-      id: 'g2',
-      name: 'Bli Made Agus',
-      rating: 4.8,
-      tripsCount: 100,
-      price: 'Rp400.000 / Hari',
-      badges: ['Bisa Mobil', 'Spesialis Pura'],
-      avatar: 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=200',
-      bio: 'Hi! Let me show you the hidden beauty of Ubud. I love hiking, local street food trails, and explaining Balinese history.',
-    },
-    {
-      id: 'g3',
-      name: 'Mbok Iluh',
-      rating: 4.6,
-      tripsCount: 96,
-      price: 'Rp400.000 / Hari',
-      badges: ['Bisa Mobil', 'Spesialis Pura'],
-      avatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=200',
-      bio: 'Greetings! I specialize in cultural exchange, traditional cooking class tours, and family-friendly itineraries. Looking forward to making your Bali trip memorable!',
-    },
-  ];
+  // API Integration states
+  const [itineraryId, setItineraryId] = useState<number | null>(null);
+  const [guidesList, setGuidesList] = useState<Guide[]>([]);
+  const [loadingGuides, setLoadingGuides] = useState(false);
+  const [selectedGuideId, setSelectedGuideId] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (isAuthenticated) {
+      getUserFavorites()
+        .then((favs) => {
+          console.log('[CreateTrip] Raw favorites from backend:', JSON.stringify(favs));
+          const mapped = favs.map((fav) => {
+            const dest = fav.destination;
+            let image = 'https://images.unsplash.com/photo-1537996194471-e657df975ab4?w=400';
+            if (dest && dest.photo_urls) {
+              let photoUrls = dest.photo_urls;
+              if (typeof photoUrls === 'string') {
+                try {
+                  const parsed = JSON.parse(photoUrls);
+                  if (Array.isArray(parsed) && parsed.length > 0) {
+                    photoUrls = parsed[0];
+                  }
+                } catch {
+                  // ignore
+                }
+              }
+              if (Array.isArray(photoUrls) && photoUrls.length > 0) {
+                image = photoUrls[0];
+              } else if (typeof photoUrls === 'string') {
+                image = photoUrls;
+              }
+            }
+            return {
+              id: String(dest?.id || fav.id_destination),
+              name: dest?.place_name || 'Unnamed Place',
+              location: dest?.regency || '',
+              image: image,
+            };
+          });
+          setAvailableSpots(mapped);
+        })
+        .catch((e) => console.warn('[CreateTrip] Gagal memuat destinasi favorit:', e));
+    } else {
+      setAvailableSpots([]);
+    }
+  }, [isAuthenticated]);
+
+
+
 
   const partners = [
     { label: 'Solo', icon: 'person-outline' },
@@ -198,19 +189,140 @@ export default function TravelerCreateTrip() {
     setSelectedSpots(selectedSpots.filter(s => s.id !== spotId));
   };
 
-  const handleCreateChat = () => {
-    alert(`Successfully created trip plan for "${tripName}" and initiated chat room with guide!`);
-    router.replace('/(tabs)/my-plans');
+  const handleSearchGuides = async () => {
+    if (!profile) {
+      alert('Please log in to continue.');
+      return;
+    }
+    if (selectedSpots.length < 2) {
+      alert('Please select at least 2 spots.');
+      return;
+    }
+
+    setLoadingGuides(true);
+    setCurrentStep(4); // Pindah layar ke Step 4 dengan loading indicator
+
+    // 1. Hitung total hari dari start_date & end_date
+    if (!rangeStart || !rangeEnd) {
+      alert('Please select trip dates.');
+      setLoadingGuides(false);
+      setCurrentStep(1);
+      return;
+    }
+
+    const diffTime = Math.abs(rangeEnd.getTime() - rangeStart.getTime());
+    const tripDuration = Math.ceil(diffTime / (1000 * 60 * 60 * 24)) + 1;
+
+    // 2. Siapkan koordinat user awal (default ke Denpasar/Kuta jika null)
+    const lat = userLocation?.latitude ?? -8.6500;
+    const lon = userLocation?.longitude ?? 115.2167;
+
+    // 3. Hitung nominal budget berdasarkan persen slider
+    const minBudget = 1000000;
+    const maxBudget = 30000000;
+    const calculatedBudget = minBudget + ((maxBudget - minBudget) * budgetPercent) / 100;
+
+    // 4. Siapkan payload pembuatan draf trip
+    const payload = {
+      id_user: profile.id,
+      trip_name: tripName || 'My Beautiful Bali Trip',
+      budget: Math.round(calculatedBudget),
+      start_date: rangeStart.toISOString().split('T')[0],
+      end_date: rangeEnd.toISOString().split('T')[0],
+      trip_duration: tripDuration,
+      user_location: {
+        latitude: lat,
+        longitude: lon,
+      },
+      destination_ids: selectedSpots.map(s => Number(s.id)),
+    };
+
+    try {
+      // 5. Buat draf itinerary di database
+      console.log('[CreateTrip] Creating trip with payload:', JSON.stringify(payload));
+      const resTrip = await createNewTripItinerary(payload);
+      
+      const newItineraryId = resTrip.data?.id || resTrip.data?.id_itinerary;
+      if (!newItineraryId) {
+        throw new Error('Itinerary ID not returned by backend.');
+      }
+      setItineraryId(newItineraryId);
+
+      // 6. Tarik rekomendasi guide berdasarkan itinerary tersebut
+      console.log('[CreateTrip] Fetching recommended guides for itinerary:', newItineraryId);
+      const rawGuides = await getRecommendedGuides(newItineraryId, lat, lon);
+      
+      // 7. Map data dari backend ke tipe data Guide di frontend
+      const mappedGuides: Guide[] = rawGuides.map((g: any) => {
+        const name = g.guide_name || g.name || 'Local Guide';
+        const avatar = g.photo_url || g.avatar || 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=200';
+        
+        const badges = [];
+        if (g.has_car) badges.push('Bisa Mobil');
+        if (g.specialization) badges.push(g.specialization);
+        if (badges.length === 0) badges.push('Spesialis Pura');
+
+        return {
+          id: String(g.id_guide || g.id),
+          name: name,
+          rating: Number(g.rating || 4.5),
+          tripsCount: Number(g.trips_handled || 10),
+          price: `Rp${Number(g.total_cost || g.price || 400000).toLocaleString('id-ID')} / Hari`,
+          badges: badges,
+          avatar: avatar,
+          bio: g.bio || 'Professional local guide in Bali.',
+        };
+      });
+
+      setGuidesList(mappedGuides);
+    } catch (e: any) {
+      console.warn('[CreateTrip] Gagal membuat trip & mencari guide:', e);
+      alert(e.message || 'Failed to create trip and search guides.');
+      setCurrentStep(2);
+    } finally {
+      setLoadingGuides(false);
+    }
   };
+
+  const handleSelectGuideAndCreateChat = async () => {
+    if (!itineraryId) {
+      alert('Itinerary not created yet.');
+      return;
+    }
+    if (!selectedGuideId) {
+      alert('Please select a guide first.');
+      return;
+    }
+
+    try {
+      console.log('[CreateTrip] Selecting guide:', selectedGuideId, 'for itinerary:', itineraryId);
+      const res = await selectGuideForTrip(itineraryId, selectedGuideId);
+      const roomId = res?.data?.room_id;
+      
+      alert(`Successfully created trip plan for "${tripName}" and initiated chat room with guide!`);
+      
+      if (roomId) {
+        router.replace({
+          pathname: '/chat-room/[id]',
+          params: { id: roomId }
+        } as any);
+      } else {
+        router.replace('/(tabs)/my-plans');
+      }
+    } catch (e: any) {
+      console.warn('[CreateTrip] Gagal menunjuk guide:', e);
+      alert(e.message || 'Failed to select guide.');
+    }
+  };
+
 
   const getStepHeaderData = () => {
     switch (currentStep) {
       case 1:
         return { title: 'Plan Your Trip', fill: '25%' };
       case 2:
-        return { title: 'Select Your Spots', fill: '50%' };
       case 3:
-        return { title: 'Your Favorites', fill: '75%' };
+        return { title: 'Select Your Spots', fill: '50%' };
       case 4:
         return { title: 'Guide Recommendation', fill: '100%' };
     }
@@ -294,9 +406,12 @@ export default function TravelerCreateTrip() {
             )}
             {currentStep === 4 && (
               <Step4GuideRecommendations
-                guides={guides}
+                guides={guidesList}
                 expandedGuideId={expandedGuideId}
                 setExpandedGuideId={setExpandedGuideId}
+                loading={loadingGuides}
+                selectedGuideId={selectedGuideId}
+                onSelectGuide={setSelectedGuideId}
               />
             )}
           </View>
@@ -318,10 +433,10 @@ export default function TravelerCreateTrip() {
                 <TouchableOpacity
                   style={[
                     styles.continueBtn,
-                    selectedSpots.length === 0 && styles.continueBtnDisabled
+                    (selectedSpots.length < 2 || loadingGuides) && styles.continueBtnDisabled
                   ]}
-                  disabled={selectedSpots.length === 0}
-                  onPress={() => setCurrentStep(4)}
+                  disabled={selectedSpots.length < 2 || loadingGuides}
+                  onPress={handleSearchGuides}
                   activeOpacity={0.9}
                 >
                   <Text style={styles.continueText}>Searching Guide</Text>
@@ -330,8 +445,12 @@ export default function TravelerCreateTrip() {
 
               {currentStep === 4 && (
                 <TouchableOpacity
-                  style={styles.continueBtn}
-                  onPress={handleCreateChat}
+                  style={[
+                    styles.continueBtn,
+                    (!selectedGuideId || loadingGuides) && styles.continueBtnDisabled
+                  ]}
+                  disabled={!selectedGuideId || loadingGuides}
+                  onPress={handleSelectGuideAndCreateChat}
                   activeOpacity={0.9}
                 >
                   <Text style={styles.continueText}>Create Room Chat</Text>

@@ -1,31 +1,53 @@
 import React from 'react';
-import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
-import { SafeAreaView } from 'react-native';
+import { Text, TouchableOpacity, StyleSheet, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { useRouter } from 'expo-router';
 import { COLORS } from '@/components/home/colors';
+import SafeHeaderWrapper from '../common/SafeHeaderWrapper';
+import TripMindLogo from '@/assets/images/tripmindlogo.svg';
 
-interface Props {
-  onCreatePress?: () => void;
-}
+export default function MyPlansHeader() {
+  const router = useRouter();
 
-export default function MyPlansHeader({ onCreatePress }: Props) {
   return (
-    <SafeAreaView style={styles.safe}>
-      <View style={styles.row}>
-        <Text style={styles.title}>My Plans</Text>
-        <TouchableOpacity style={styles.createBtn} onPress={onCreatePress} activeOpacity={0.8}>
-          <Ionicons name="add" size={20} color={COLORS.white} />
-          <Text style={styles.createLabel}>Create</Text>
+    <SafeHeaderWrapper>
+      <View style={styles.container}>
+        <View style={styles.left}>
+          <TripMindLogo width={18} height={28} fill={COLORS.brand700} />
+          <Text style={styles.title}>My Plans</Text>
+        </View>
+        <TouchableOpacity
+          style={styles.chatBtn}
+          activeOpacity={0.8}
+          onPress={() => router.push('/chat-list')}
+        >
+          <Ionicons name="chatbubbles-outline" size={24} color="#1C857C" />
         </TouchableOpacity>
       </View>
-    </SafeAreaView>
+    </SafeHeaderWrapper>
   );
 }
 
 const styles = StyleSheet.create({
-  safe: { backgroundColor: COLORS.white, borderBottomWidth: 1, borderBottomColor: COLORS.border },
-  row: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 20, paddingVertical: 14 },
-  title: { fontSize: 22, fontWeight: '800', color: COLORS.brand900, letterSpacing: -0.5 },
-  createBtn: { flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: COLORS.brand700, borderRadius: 20, paddingHorizontal: 14, paddingVertical: 8 },
-  createLabel: { fontSize: 13, fontWeight: '700', color: COLORS.white },
+  container: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    width: '100%',
+    paddingHorizontal: 16,
+  },
+  left: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+  },
+  title: { 
+    fontSize: 22, 
+    fontWeight: '800', 
+    color: COLORS.brand900, 
+    letterSpacing: -0.5 
+  },
+  chatBtn: {
+    padding: 4,
+  },
 });

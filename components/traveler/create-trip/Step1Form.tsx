@@ -80,17 +80,19 @@ export default function Step1Form({
           onTouchStart={handleSliderTouch}
           onTouchMove={handleSliderTouch}
         >
-          <View style={styles.sliderTrackBg}>
-            <View style={[styles.sliderTrackFill, { width: `${budgetPercent}%` }]} />
+          <View style={styles.sliderTrackBg} pointerEvents="none">
+            <View style={[styles.sliderTrackFill, { width: `${budgetPercent}%` }]} pointerEvents="none" />
           </View>
           <View 
             style={[
               styles.sliderThumb, 
               { left: `${Math.max(0, Math.min(96, budgetPercent))}%` }
             ]} 
+            pointerEvents="none"
           />
         </View>
       </View>
+
 
       <View style={styles.fieldGroup}>
         <Text style={styles.label}>Traveling With</Text>
@@ -195,7 +197,7 @@ const styles = StyleSheet.create({
     borderWidth: 3,
     borderColor: '#196660',
     position: 'absolute',
-    marginTop: -10,
+    top: 4,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.15,

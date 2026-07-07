@@ -1,9 +1,9 @@
 import React from 'react';
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
-import { SafeAreaView } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import TripMindLogo from '@/assets/images/tripmindlogo.svg';
 import { COLORS } from '@/components/home/colors';
+import SafeHeaderWrapper from '../common/SafeHeaderWrapper';
 
 interface Props {
   onFilterPress?: () => void;
@@ -11,36 +11,22 @@ interface Props {
 
 export default function ExploreHeader({ onFilterPress }: Props) {
   return (
-    <SafeAreaView style={styles.safe}>
-      <View style={styles.row}>
-        {/* Logo + Title */}
-        <View style={styles.left}>
-          <TripMindLogo width={18} height={28} fill={COLORS.brand700} />
-          <Text style={styles.title}>Explore</Text>
-        </View>
-
-        {/* Filter Button */}
-        <TouchableOpacity style={styles.filterBtn} onPress={onFilterPress} activeOpacity={0.8}>
-          <Ionicons name="options-outline" size={20} color={COLORS.brand700} />
-        </TouchableOpacity>
+    <SafeHeaderWrapper>
+      {/* Logo + Title */}
+      <View style={styles.left}>
+        <TripMindLogo width={18} height={28} fill={COLORS.brand700} />
+        <Text style={styles.title}>Explore</Text>
       </View>
-    </SafeAreaView>
+
+      {/* Filter Button */}
+      <TouchableOpacity style={styles.filterBtn} onPress={onFilterPress} activeOpacity={0.8}>
+        <Ionicons name="options-outline" size={20} color={COLORS.brand700} />
+      </TouchableOpacity>
+    </SafeHeaderWrapper>
   );
 }
 
 const styles = StyleSheet.create({
-  safe: {
-    backgroundColor: COLORS.white,
-    borderBottomWidth: 1,
-    borderBottomColor: COLORS.border,
-  },
-  row: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 20,
-    paddingVertical: 14,
-  },
   left: {
     flexDirection: 'row',
     alignItems: 'center',

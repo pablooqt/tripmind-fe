@@ -43,7 +43,7 @@ export default function Step3FavoritesGrid({
   return (
     <View style={styles.favoritesLayout}>
       <Text style={styles.subtitle2}>
-        Select the places you\'d like to visit on this trip.
+        Select the places you&apos;d like to visit on this trip.
       </Text>
 
       <TouchableOpacity 

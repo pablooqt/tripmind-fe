@@ -6,6 +6,7 @@ import {
   TouchableOpacity,
   ScrollView,
   Image,
+  ActivityIndicator,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { COLORS } from '@/components/home/colors';
@@ -15,80 +16,117 @@ interface Props {
   guides: Guide[];
   expandedGuideId: string | null;
   setExpandedGuideId: (id: string | null) => void;
+  loading?: boolean;
+  selectedGuideId?: string | null;
+  onSelectGuide?: (id: string) => void;
 }
 
 export default function Step4GuideRecommendations({
   guides,
   expandedGuideId,
   setExpandedGuideId,
+  loading = false,
+  selectedGuideId = null,
+  onSelectGuide,
 }: Props) {
+  if (loading) {
+    return (
+      <View style={styles.center}>
+        <ActivityIndicator size="large" color="#1C857C" />
+        <Text style={styles.loadingText}>Searching recommendations...</Text>
+      </View>
+    );
+  }
+
   return (
     <View style={styles.guidesLayout}>
       <View style={styles.guidesHeaderRow}>
         <Text style={styles.guidesSub}>
-          guide recommendations for you will follow your current location
+          Guide recommendations for you are matched based on your budget and location.
         </Text>
-        <TouchableOpacity style={styles.swapBtn}>
-          <Ionicons name="swap-vertical" size={16} color={COLORS.brand950} />
-        </TouchableOpacity>
       </View>
 
-      <ScrollView style={styles.guidesListScroll} showsVerticalScrollIndicator={false}>
-        {guides.map((guide) => {
-          const isExpanded = expandedGuideId === guide.id;
-          return (
-            <View key={guide.id} style={styles.guideCard}>
-              <View style={styles.guideCardTop}>
-                <Image source={{ uri: guide.avatar }} style={styles.guideAvatar} />
-                
-                <View style={styles.guideInfo}>
-                  <View style={styles.guideNameRow}>
-                    <Text style={styles.guideName}>{guide.name}</Text>
-                    <View style={styles.guideRatingRow}>
-                      <Text style={styles.guideRatingText}>{guide.rating}</Text>
-                      <Ionicons name="star" size={12} color="#FFB800" style={{ marginLeft: 3, marginRight: 2 }} />
-                      <Text style={styles.guideTripsText}>({guide.tripsCount} trip)</Text>
+      {guides.length === 0 ? (
+        <View style={styles.center}>
+          <Ionicons name="people-outline" size={48} color={COLORS.gray400} />
+          <Text style={styles.noGuidesText}>No guides match your search criteria.</Text>
+        </View>
+      ) : (
+        <ScrollView style={styles.guidesListScroll} showsVerticalScrollIndicator={false}>
+          {guides.map((guide) => {
+            const isExpanded = expandedGuideId === guide.id;
+            const isSelected = selectedGuideId === guide.id;
+
+            return (
+              <TouchableOpacity
+                key={guide.id}
+                style={[
+                  styles.guideCard,
+                  isSelected && styles.guideCardSelected
+                ]}
+                activeOpacity={0.9}
+                onPress={() => onSelectGuide && onSelectGuide(guide.id)}
+              >
+                {/* Checkmark indicator for selection */}
+                {isSelected && (
+                  <View style={styles.selectBadge}>
+                    <Ionicons name="checkmark-circle" size={20} color="#1C857C" />
+                  </View>
+                )}
+
+                <View style={styles.guideCardTop}>
+                  <Image source={{ uri: guide.avatar }} style={styles.guideAvatar} />
+                  
+                  <View style={styles.guideInfo}>
+                    <View style={styles.guideNameRow}>
+                      <Text style={styles.guideName}>{guide.name}</Text>
+                      <View style={styles.guideRatingRow}>
+                        <Text style={styles.guideRatingText}>{guide.rating}</Text>
+                        <Ionicons name="star" size={12} color="#FFB800" style={{ marginLeft: 3, marginRight: 2 }} />
+                        <Text style={styles.guideTripsText}>({guide.tripsCount} trip)</Text>
+                      </View>
+                    </View>
+
+                    <Text style={styles.guidePrice}>{guide.price}</Text>
+
+                    <View style={styles.guideBadgesRow}>
+                      {guide.badges.map((b, bIdx) => (
+                        <View key={bIdx} style={styles.guideBadge}>
+                          <Text style={styles.guideBadgeText}>{b}</Text>
+                        </View>
+                      ))}
                     </View>
                   </View>
+                </View>
 
-                  <Text style={styles.guidePrice}>{guide.price}</Text>
-
-                  <View style={styles.guideBadgesRow}>
-                    {guide.badges.map((b, bIdx) => (
-                      <View key={bIdx} style={styles.guideBadge}>
-                        <Text style={styles.guideBadgeText}>{b}</Text>
-                      </View>
-                    ))}
+                {isExpanded && (
+                  <View style={styles.guideBioExpanded}>
+                    <Text style={styles.guideBioText}>{guide.bio}</Text>
                   </View>
-                </View>
-              </View>
+                )}
 
-              {isExpanded && (
-                <View style={styles.guideBioExpanded}>
-                  <Text style={styles.guideBioText}>{guide.bio}</Text>
-                </View>
-              )}
-
-              <TouchableOpacity 
-                style={styles.moreAboutBtn}
-                onPress={() => setExpandedGuideId(isExpanded ? null : guide.id)}
-                activeOpacity={0.8}
-              >
-                <Text style={styles.moreAboutText}>More about me</Text>
-                <Ionicons 
-                  name={isExpanded ? 'chevron-up' : 'chevron-down'} 
-                  size={14} 
-                  color={COLORS.gray500} 
-                  style={{ marginLeft: 4 }}
-                />
+                <TouchableOpacity 
+                  style={styles.moreAboutBtn}
+                  onPress={() => setExpandedGuideId(isExpanded ? null : guide.id)}
+                  activeOpacity={0.8}
+                >
+                  <Text style={styles.moreAboutText}>More about me</Text>
+                  <Ionicons 
+                    name={isExpanded ? 'chevron-up' : 'chevron-down'} 
+                    size={14} 
+                    color={COLORS.gray500} 
+                    style={{ marginLeft: 4 }}
+                  />
+                </TouchableOpacity>
               </TouchableOpacity>
-            </View>
-          );
-        })}
-      </ScrollView>
+            );
+          })}
+        </ScrollView>
+      )}
     </View>
   );
 }
+
 
 const styles = StyleSheet.create({
   guidesLayout: {
@@ -216,5 +254,34 @@ const styles = StyleSheet.create({
     fontSize: 11.5,
     fontWeight: '600',
     color: COLORS.gray500,
+  },
+  center: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: 24,
+    marginTop: 40,
+  },
+  loadingText: {
+    marginTop: 12,
+    fontSize: 14,
+    color: '#6B7280',
+    fontWeight: '500',
+  },
+  noGuidesText: {
+    marginTop: 12,
+    fontSize: 14,
+    color: COLORS.gray500,
+    textAlign: 'center',
+  },
+  guideCardSelected: {
+    borderColor: '#1C857C',
+    backgroundColor: '#F2FBF9',
+  },
+  selectBadge: {
+    position: 'absolute',
+    top: 12,
+    right: 12,
+    zIndex: 10,
   },
 });
