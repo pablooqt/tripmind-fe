@@ -238,19 +238,21 @@ export default function TravelerCreateTrip() {
     };
 
     try {
-      // 5. Buat draf itinerary di database
-      console.log('[CreateTrip] Creating trip with payload:', JSON.stringify(payload));
-      const resTrip = await createNewTripItinerary(payload);
-      
-      const newItineraryId = resTrip.data?.id || resTrip.data?.id_itinerary;
-      if (!newItineraryId) {
-        throw new Error('Itinerary ID not returned by backend.');
+      let activeItineraryId = itineraryId;
+      if (!activeItineraryId) {
+        // 5. Buat draf itinerary di database
+        console.log('[CreateTrip] Creating trip with payload:', JSON.stringify(payload));
+        const resTrip = await createNewTripItinerary(payload);
+        activeItineraryId = resTrip.data?.id || resTrip.data?.id_itinerary;
+        if (!activeItineraryId) {
+          throw new Error('Itinerary ID not returned by backend.');
+        }
+        setItineraryId(activeItineraryId);
       }
-      setItineraryId(newItineraryId);
 
       // 6. Tarik rekomendasi guide berdasarkan itinerary tersebut
-      console.log('[CreateTrip] Fetching recommended guides for itinerary:', newItineraryId);
-      const rawGuides = await getRecommendedGuides(newItineraryId, lat, lon);
+      console.log('[CreateTrip] Fetching recommended guides for itinerary:', activeItineraryId);
+      const rawGuides = await getRecommendedGuides(activeItineraryId, lat, lon);
       
       // 7. Map data dari backend ke tipe data Guide di frontend
       const mappedGuides: Guide[] = rawGuides.map((g: any) => {
@@ -297,18 +299,21 @@ export default function TravelerCreateTrip() {
     try {
       console.log('[CreateTrip] Selecting guide:', selectedGuideId, 'for itinerary:', itineraryId);
       const res = await selectGuideForTrip(itineraryId, selectedGuideId);
-      const roomId = res?.data?.room_id;
+      let roomId = res?.data?.room_id;
       
       alert(`Successfully created trip plan for "${tripName}" and initiated chat room with guide!`);
       
-      if (roomId) {
-        router.replace({
-          pathname: '/chat-room/[id]',
-          params: { id: roomId }
-        } as any);
-      } else {
-        router.replace('/(tabs)/my-plans');
+      if (!roomId) {
+        roomId = `room_${itineraryId}_${selectedGuideId}`;
       }
+      
+      const selectedGuideObj = guidesList.find(g => g.id === selectedGuideId);
+      const selectedGuideName = selectedGuideObj ? selectedGuideObj.name : 'Guide';
+
+      router.replace({
+        pathname: '/chat-room/[id]',
+        params: { id: roomId, name: selectedGuideName }
+      } as any);
     } catch (e: any) {
       console.warn('[CreateTrip] Gagal menunjuk guide:', e);
       alert(e.message || 'Failed to select guide.');
@@ -367,7 +372,7 @@ export default function TravelerCreateTrip() {
           {/* Progress Bar */}
           <View style={styles.progressContainer}>
             <View style={styles.progressBarBg}>
-              <View style={[styles.progressBarFill, { width: headerData.fill }]} />
+              <View style={[styles.progressBarFill, { width: headerData.fill as any }]} />
             </View>
           </View>
 

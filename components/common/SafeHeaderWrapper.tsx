@@ -1,14 +1,16 @@
 import React from 'react';
-import { SafeAreaView, View, StyleSheet, Platform, StatusBar } from 'react-native';
+import { SafeAreaView, View, StyleSheet, Platform, StatusBar, StyleProp, ViewStyle } from 'react-native';
 
 interface Props {
   children: React.ReactNode;
+  containerStyle?: StyleProp<ViewStyle>;
+  rowStyle?: StyleProp<ViewStyle>;
 }
 
-export default function SafeHeaderWrapper({ children }: Props) {
+export default function SafeHeaderWrapper({ children, containerStyle, rowStyle }: Props) {
   return (
-    <SafeAreaView style={styles.safe}>
-      <View style={styles.row}>
+    <SafeAreaView style={[styles.safe, containerStyle]}>
+      <View style={[styles.row, rowStyle]}>
         {children}
       </View>
     </SafeAreaView>

@@ -141,6 +141,7 @@ export default function GuideToursScreen() {
           {tours.map((item) => {
             const statusConfig = getStatusLabelAndColor(item.status);
             const coverImage = item.cover_photo || 'https://images.unsplash.com/photo-1537996194471-e657df975ab4?w=800';
+            const travelerName = (item as any).users?.name || item.traveler_name || 'Traveler';
 
             return (
               <TouchableOpacity
@@ -151,7 +152,7 @@ export default function GuideToursScreen() {
                   if (item.room_id) {
                     router.push({
                       pathname: '/chat-room/[id]',
-                      params: { id: item.room_id },
+                      params: { id: item.room_id, name: travelerName },
                     } as any);
                   } else {
                     alert('Chat room not created for this trip.');
@@ -173,7 +174,7 @@ export default function GuideToursScreen() {
                 <View style={styles.cardDetails}>
                   <View style={styles.infoTopRow}>
                     <Text style={styles.tripName} numberOfLines={1}>{item.trip_name}</Text>
-                    <Text style={styles.guestName} numberOfLines={1}>Trip by {item.traveler_name}</Text>
+                    <Text style={styles.guestName} numberOfLines={1}>Trip by {travelerName}</Text>
                   </View>
                   <View style={styles.infoBottomRow}>
                     <Ionicons name="calendar-outline" size={14} color={COLORS.gray400} />

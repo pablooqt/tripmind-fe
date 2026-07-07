@@ -1,106 +1,300 @@
-import React from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, Switch } from 'react-native';
-import { SafeAreaView, ScrollView } from 'react-native';
+import React, { useState, useEffect } from 'react';
+import { View, Text, TouchableOpacity, StyleSheet, Image, ActivityIndicator, Alert } from 'react-native';
+import { ScrollView } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { useRouter, useNavigation } from 'expo-router';
 import { COLORS } from '@/components/home/colors';
+import { useAuth } from '@/context/AuthContext';
+import { getAuthUserProfile, deleteAuthAccount } from '@/services/api';
 
 type IoniconName = React.ComponentProps<typeof Ionicons>['name'];
 
-interface SettingItem {
+interface MenuItem {
   icon: IoniconName;
   label: string;
-  value?: string;
-  toggle?: boolean;
-  onPress?: () => void;
-  danger?: boolean;
+  onPress: () => void;
 }
 
-const SETTINGS: SettingItem[] = [
-  { icon: 'person-circle-outline', label: 'Edit Profile',       onPress: () => {} },
-  { icon: 'notifications-outline', label: 'Notifications',      toggle: true },
-  { icon: 'language-outline',      label: 'Language',            value: 'Indonesia' },
-  { icon: 'moon-outline',          label: 'Dark Mode',           toggle: true },
-  { icon: 'shield-checkmark-outline', label: 'Privacy & Security', onPress: () => {} },
-  { icon: 'help-circle-outline',   label: 'Help & Support',     onPress: () => {} },
-  { icon: 'information-circle-outline', label: 'About TripMind', onPress: () => {} },
-  { icon: 'log-out-outline',       label: 'Logout',              onPress: () => {}, danger: true },
-];
-
 export default function SettingsList() {
-  const [notifications, setNotifications] = React.useState(true);
-  const [darkMode, setDarkMode]           = React.useState(false);
+  const router = useRouter();
+  const navigation = useNavigation();
+  const { logout } = useAuth();
+  
+  const [profile, setProfile] = useState<any>(null);
+  const [loading, setLoading] = useState(true);
+
+  const fetchProfile = async () => {
+    try {
+      const data = await getAuthUserProfile();
+      setProfile(data);
+    } catch (e) {
+      console.warn('[SettingsList] Gagal memuat profil:', e);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchProfile();
+  }, []);
+
+  // Segarkan profil saat pengguna kembali ke halaman ini
+  useEffect(() => {
+    const unsubscribe = navigation.addListener('focus', () => {
+      fetchProfile();
+    });
+    return unsubscribe;
+  }, [navigation]);
+
+  const handleLogout = () => {
+    Alert.alert(
+      'Log Out',
+      'Are you sure you want to log out from your account?',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        { 
+          text: 'Log Out', 
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              await logout();
+              router.replace('/login');
+            } catch (e) {
+              console.warn('Logout failed:', e);
+            }
+          }
+        }
+      ]
+    );
+  };
+
+  const handleDeleteAccount = () => {
+    Alert.alert(
+      'Delete Account',
+      'WARNING: Deleting your account is permanent. All your data and trip plans will be lost forever. Do you wish to proceed?',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Delete Permanently',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              await deleteAuthAccount();
+              await logout();
+              router.replace('/login');
+            } catch (e: any) {
+              Alert.alert('Error', e.message || 'Failed to delete account.');
+            }
+          }
+        }
+      ]
+    );
+  };
+
+  const menuItems: MenuItem[] = [
+    { 
+      icon: 'person-outline', 
+      label: 'Profile', 
+      onPress: () => router.push('/settings/profile' as any) 
+    },
+    { 
+      icon: 'lock-closed-outline', 
+      label: 'Password', 
+      onPress: () => router.push('/settings/password' as any) 
+    },
+    { 
+      icon: 'finger-print-outline', 
+      label: 'Persona', 
+      onPress: () => router.push('/settings/persona' as any) 
+    },
+    { 
+      icon: 'bookmark-outline', 
+      label: 'Liked', 
+      onPress: () => router.push('/settings/liked' as any) 
+    },
+  ];
+
+  const photoUri = profile?.photo_url || null;
+  const initialLetter = profile?.name ? profile.name.charAt(0).toUpperCase() : '?';
 
   return (
-    <ScrollView style={styles.scroll} contentContainerStyle={styles.content}>
+    <ScrollView style={styles.scroll} contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
       {/* Profile Card */}
       <View style={styles.profileCard}>
-        <View style={styles.avatarLarge}>
-          <Ionicons name="person" size={36} color={COLORS.white} />
-        </View>
+        {photoUri ? (
+          <Image source={{ uri: photoUri }} style={styles.avatarLarge} />
+        ) : (
+          <View style={styles.avatarPlaceholder}>
+            <Text style={styles.avatarText}>{initialLetter}</Text>
+          </View>
+        )}
         <View style={styles.profileInfo}>
-          <Text style={styles.profileName}>Traveler</Text>
-          <Text style={styles.profileEmail}>user@tripmind.id</Text>
+          <Text style={styles.profileName} numberOfLines={1}>
+            {profile?.name || 'Traveler'}
+          </Text>
+          <Text style={styles.profileEmail} numberOfLines={1}>
+            {profile?.email || 'user@tripmind.id'}
+          </Text>
         </View>
-        <TouchableOpacity style={styles.editIcon}>
-          <Ionicons name="pencil-outline" size={18} color={COLORS.brand700} />
-        </TouchableOpacity>
       </View>
 
-      {/* Settings Items */}
-      <View style={styles.section}>
-        {SETTINGS.map((item, i) => (
+      {/* Settings Options Card Group */}
+      <View style={styles.cardGroup}>
+        {menuItems.map((item, index) => (
           <TouchableOpacity
-            key={i}
-            style={[styles.item, i < SETTINGS.length - 1 && styles.itemBorder]}
+            key={item.label}
+            style={[
+              styles.menuRow,
+              index < menuItems.length - 1 && styles.menuBorder
+            ]}
+            activeOpacity={0.7}
             onPress={item.onPress}
-            activeOpacity={item.toggle ? 1 : 0.75}
           >
-            <View style={[styles.itemIcon, item.danger && styles.itemIconDanger]}>
-              <Ionicons name={item.icon} size={20} color={item.danger ? '#EF4444' : COLORS.brand700} />
+            <View style={styles.rowLeft}>
+              <Ionicons name={item.icon} size={20} color={COLORS.brand950} style={{ marginRight: 12 }} />
+              <Text style={styles.rowLabel}>{item.label}</Text>
             </View>
-            <Text style={[styles.itemLabel, item.danger && styles.itemLabelDanger]}>{item.label}</Text>
-            <View style={styles.itemRight}>
-              {item.toggle ? (
-                item.label === 'Notifications' ? (
-                  <Switch value={notifications} onValueChange={setNotifications} trackColor={{ true: COLORS.brand700, false: COLORS.border }} thumbColor={COLORS.white} />
-                ) : (
-                  <Switch value={darkMode} onValueChange={setDarkMode} trackColor={{ true: COLORS.brand700, false: COLORS.border }} thumbColor={COLORS.white} />
-                )
-              ) : item.value ? (
-                <Text style={styles.itemValue}>{item.value}</Text>
-              ) : !item.danger ? (
-                <Ionicons name="chevron-forward" size={18} color={COLORS.gray400} />
-              ) : null}
-            </View>
+            <Ionicons name="chevron-forward" size={16} color={COLORS.gray400} />
           </TouchableOpacity>
         ))}
       </View>
 
-      <Text style={styles.version}>TripMind v1.0.0</Text>
+      {/* Standalone Logout & Delete Account Buttons */}
+      <View style={styles.actionSection}>
+        <TouchableOpacity style={styles.logoutBtn} activeOpacity={0.8} onPress={handleLogout}>
+          <Ionicons name="log-out-outline" size={20} color={COLORS.brand950} style={{ marginRight: 8 }} />
+          <Text style={styles.logoutText}>Log Out</Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity style={styles.deleteBtn} activeOpacity={0.8} onPress={handleDeleteAccount}>
+          <Ionicons name="trash-outline" size={20} color="#EF4444" style={{ marginRight: 8 }} />
+          <Text style={styles.deleteText}>Delete Account</Text>
+        </TouchableOpacity>
+      </View>
     </ScrollView>
   );
 }
 
 const styles = StyleSheet.create({
-  scroll: { flex: 1 },
-  content: { paddingHorizontal: 16, paddingTop: 16, paddingBottom: 100 },
-
-  profileCard: { flexDirection: 'row', alignItems: 'center', backgroundColor: COLORS.white, borderRadius: 20, padding: 16, marginBottom: 20, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.06, shadowRadius: 8, elevation: 3 },
-  avatarLarge: { width: 60, height: 60, borderRadius: 30, backgroundColor: COLORS.brand600, alignItems: 'center', justifyContent: 'center', marginRight: 14 },
-  profileInfo: { flex: 1 },
-  profileName: { fontSize: 16, fontWeight: '800', color: COLORS.brand900, marginBottom: 4 },
-  profileEmail: { fontSize: 13, color: COLORS.gray500 },
-  editIcon: { width: 36, height: 36, borderRadius: 18, backgroundColor: COLORS.brand50, alignItems: 'center', justifyContent: 'center' },
-
-  section: { backgroundColor: COLORS.white, borderRadius: 20, overflow: 'hidden', shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.06, shadowRadius: 8, elevation: 3 },
-  item: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 14 },
-  itemBorder: { borderBottomWidth: 1, borderBottomColor: COLORS.bg },
-  itemIcon: { width: 36, height: 36, borderRadius: 10, backgroundColor: COLORS.brand50, alignItems: 'center', justifyContent: 'center', marginRight: 12 },
-  itemIconDanger: { backgroundColor: '#FEF2F2' },
-  itemLabel: { flex: 1, fontSize: 14, fontWeight: '600', color: COLORS.brand950 },
-  itemLabelDanger: { color: '#EF4444' },
-  itemRight: { alignItems: 'flex-end' },
-  itemValue: { fontSize: 13, color: COLORS.gray500 },
-
-  version: { textAlign: 'center', fontSize: 12, color: COLORS.gray400, marginTop: 24 },
+  scroll: {
+    flex: 1,
+  },
+  content: {
+    paddingHorizontal: 16,
+    paddingTop: 16,
+    paddingBottom: 40,
+  },
+  profileCard: {
+    backgroundColor: COLORS.white,
+    borderRadius: 20,
+    padding: 20,
+    alignItems: 'center',
+    marginBottom: 20,
+    borderWidth: 1,
+    borderColor: '#EEEEEE',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.03,
+    shadowRadius: 6,
+    elevation: 2,
+  },
+  avatarLarge: {
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    backgroundColor: '#F3F4F6',
+    marginBottom: 12,
+  },
+  avatarPlaceholder: {
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    backgroundColor: '#D1EDEB',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 12,
+  },
+  avatarText: {
+    fontSize: 32,
+    fontWeight: '800',
+    color: '#196660',
+  },
+  profileInfo: {
+    alignItems: 'center',
+  },
+  profileName: {
+    fontSize: 18,
+    fontWeight: '800',
+    color: COLORS.brand950,
+    marginBottom: 4,
+  },
+  profileEmail: {
+    fontSize: 13,
+    color: COLORS.gray500,
+    fontWeight: '500',
+  },
+  cardGroup: {
+    backgroundColor: COLORS.white,
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: '#EEEEEE',
+    overflow: 'hidden',
+    marginBottom: 24,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.03,
+    shadowRadius: 6,
+    elevation: 2,
+  },
+  menuRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 20,
+    paddingVertical: 16,
+  },
+  menuBorder: {
+    borderBottomWidth: 1,
+    borderBottomColor: '#F3F4F6',
+  },
+  rowLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  rowLabel: {
+    fontSize: 14.5,
+    fontWeight: '700',
+    color: COLORS.brand950,
+  },
+  actionSection: {
+    gap: 12,
+  },
+  logoutBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#EAEAEA',
+    borderRadius: 16,
+    paddingVertical: 14,
+    width: '100%',
+  },
+  logoutText: {
+    fontSize: 14.5,
+    fontWeight: '800',
+    color: COLORS.brand950,
+  },
+  deleteBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#FEE2E2',
+    borderRadius: 16,
+    paddingVertical: 14,
+    width: '100%',
+  },
+  deleteText: {
+    fontSize: 14.5,
+    fontWeight: '800',
+    color: '#EF4444',
+  },
 });
