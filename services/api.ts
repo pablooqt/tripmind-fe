@@ -254,3 +254,119 @@ export async function getUserFavorites(): Promise<any[]> {
   const response = await apiRequest<{ status: string; data: any[] }>('/api/v1/favorites/');
   return response.data;
 }
+
+export interface TripPlan {
+  id: number;
+  trip_name: string;
+  start_date: string;
+  end_date: string;
+  budget: number;
+  traveling_with: string;
+  cover_photo?: string;
+  guide_name?: string;
+  guide_avatar?: string;
+  guide_rating?: number;
+}
+
+/** Mengambil seluruh daftar rencana trip milik traveler aktif */
+export async function getUserTripPlans(): Promise<TripPlan[]> {
+  const response = await apiRequest<{ status: string; data: TripPlan[] }>('/api/v1/trips/my-plans');
+  return response.data || [];
+}
+
+/** Membuat trip baru di backend dan mengembalikan detail itinerary */
+export async function createNewTripItinerary(payload: {
+  id_user: string;
+  trip_name: string;
+  budget: number;
+  start_date: string;
+  end_date: string;
+  trip_duration: number;
+  user_location: { latitude: number; longitude: number };
+  destination_ids: number[];
+}): Promise<any> {
+  return apiRequest<any>('/api/v1/trips/create', {
+    method: 'POST',
+    body: JSON.stringify(payload),
+  });
+}
+
+/** Mengambil rekomendasi guide untuk itinerary tertentu */
+export async function getRecommendedGuides(
+  id_itinerary: number,
+  latitude?: number,
+  longitude?: number
+): Promise<any[]> {
+  let url = `/api/v1/trips/${id_itinerary}/recommend-guides`;
+  const params: string[] = [];
+  if (latitude !== undefined) params.push(`latitude=${latitude}`);
+  if (longitude !== undefined) params.push(`longitude=${longitude}`);
+  if (params.length > 0) {
+    url += `?${params.join('&')}`;
+  }
+  const response = await apiRequest<{ status: string; data: any[] }>(url);
+  return response.data || [];
+}
+
+/** Memilih guide untuk ditugaskan pada itinerary */
+export async function selectGuideForTrip(id_itinerary: number, id_guide: string): Promise<any> {
+  return apiRequest<any>(`/api/v1/trips/${id_itinerary}/select-guide`, {
+    method: 'POST',
+    body: JSON.stringify({ id_guide }),
+  });
+}
+
+/** Mengambil seluruh daftar room chat milik user aktif */
+export async function getUserChatRooms(): Promise<any[]> {
+  return apiRequest<any[]>('/api/v1/chat/rooms');
+}
+
+/** Mengambil riwayat pesan di suatu room obrolan */
+export async function getRoomMessages(
+  room_id: string,
+  limit: number = 50,
+  skip: number = 0
+): Promise<any[]> {
+  return apiRequest<any[]>(`/api/v1/chat/rooms/${room_id}/messages?limit=${limit}&skip=${skip}`);
+}
+
+/** Guide menyetujui request trip */
+export async function confirmTripBooking(id_itinerary: number): Promise<any> {
+  return apiRequest<any>(`/api/v1/trips/${id_itinerary}/confirm`, {
+    method: 'POST',
+  });
+}
+
+/** Guide menolak request trip */
+export async function rejectTripBooking(id_itinerary: number): Promise<any> {
+  return apiRequest<any>(`/api/v1/trips/${id_itinerary}/reject`, {
+    method: 'POST',
+  });
+}
+
+/** Mengambil data ringkasan dashboard guide */
+export async function getGuideDashboard(): Promise<any> {
+  const response = await apiRequest<{ status: string; data: any }>('/api/v1/guides/dashboard');
+  return response.data;
+}
+
+/** Mengambil daftar tur guide */
+export async function getGuideTours(status?: string, search?: string): Promise<any[]> {
+  let url = '/api/v1/guides/tours';
+  const params: string[] = [];
+  if (status) params.push(`status=${status}`);
+  if (search) params.push(`search=${search}`);
+  if (params.length > 0) {
+    url += `?${params.join('&')}`;
+  }
+  const response = await apiRequest<{ status: string; data: any[] }>(url);
+  return response.data || [];
+}
+
+/** Mengambil saldo bagi hasil payout guide */
+export async function getGuidePayout(): Promise<any> {
+  const response = await apiRequest<{ status: string; data: any }>('/api/v1/guides/payout');
+  return response.data;
+}
+
+
