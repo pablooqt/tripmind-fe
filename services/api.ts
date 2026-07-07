@@ -53,7 +53,11 @@ export interface SimilarRequest {
 // ============================================================
 
 async function apiRequest<T>(endpoint: string, options: RequestInit = {}): Promise<T> {
-  const url = `${BASE_URL}${endpoint}`;
+  let baseUrl = BASE_URL;
+  if (endpoint.startsWith('/api/v1/chat')) {
+    baseUrl = BASE_URL.replace(/:8000$/, ':8002');
+  }
+  const url = `${baseUrl}${endpoint}`;
   
   const headers: Record<string, string> = { "Content-Type": "application/json" };
   const globalToken = (global as any).apiToken;
@@ -367,6 +371,91 @@ export async function getGuideTours(status?: string, search?: string): Promise<a
 export async function getGuidePayout(): Promise<any> {
   const response = await apiRequest<{ status: string; data: any }>('/api/v1/guides/payout');
   return response.data;
+}
+
+/** Checkout trip itinerary traveler dan menghasilkan token/link bayar Midtrans */
+export async function checkoutTripOrder(id_itinerary: number): Promise<any> {
+  return apiRequest<any>('/api/v1/orders/checkout', {
+    method: 'POST',
+    body: JSON.stringify({ id_itinerary, payment_method: 'snap' }),
+  });
+}
+
+/** Mengambil detail satu itinerary perjalanan */
+export async function getTripDetail(id: number): Promise<any> {
+  const response = await apiRequest<{ status: string; data: any }>(`/api/v1/trips/${id}`);
+  return response.data;
+}
+
+/** Menambahkan destinasi baru ke dalam rencana itinerary */
+export async function addDestinationToTrip(id_itinerary: number, id_destination: number, day_number: string): Promise<any> {
+  return apiRequest<any>(`/api/v1/trips/${id_itinerary}/add-destination`, {
+    method: 'POST',
+    body: JSON.stringify({ id_destination, day_number }),
+  });
+}
+
+/** Mengambil seluruh daftar destinasi wisata di Bali */
+export async function getAllDestinations(): Promise<any[]> {
+  const response = await apiRequest<{ status: string; data: any[] }>('/api/v1/destinations');
+  return response.data || [];
+}
+
+/** Mengambil profil detail user auth aktif */
+export async function getAuthUserProfile(): Promise<any> {
+  const response = await apiRequest<{ status: string; data: any }>('/api/v1/auth/me');
+  return response.data;
+}
+
+/** Memperbarui nama profil user */
+export async function updateAuthUserProfile(name: string): Promise<any> {
+  return apiRequest<any>('/api/v1/auth/profile', {
+    method: 'PATCH',
+    body: JSON.stringify({ name }),
+  });
+}
+
+/** Reset/Ganti password user */
+export async function changeAuthPassword(password: string): Promise<any> {
+  return apiRequest<any>('/api/v1/auth/reset-password', {
+    method: 'POST',
+    body: JSON.stringify({ password }),
+  });
+}
+
+/** Hapus akun user secara permanen */
+export async function deleteAuthAccount(): Promise<any> {
+  return apiRequest<any>('/api/v1/auth/delete', {
+    method: 'DELETE',
+  });
+}
+
+/** Upload foto profil user */
+export async function uploadAuthPhoto(fileUri: string, mimeType: string, fileName: string): Promise<any> {
+  const formData = new FormData();
+  formData.append('file', {
+    uri: fileUri,
+    type: mimeType,
+    name: fileName,
+  } as any);
+
+  const globalToken = (global as any).apiToken;
+  const headers: Record<string, string> = {};
+  if (globalToken) {
+    headers["Authorization"] = `Bearer ${globalToken}`;
+  }
+
+  const response = await fetch(`${BASE_URL}/api/v1/auth/photo`, {
+    method: 'POST',
+    headers,
+    body: formData,
+  });
+
+  if (!response.ok) {
+    const errorBody = await response.json().catch(() => ({}));
+    throw new Error(errorBody?.detail ?? `HTTP Error ${response.status}`);
+  }
+  return response.json();
 }
 
 

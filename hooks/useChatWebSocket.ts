@@ -41,8 +41,8 @@ export function useChatWebSocket(roomId: string | null, token: string | null) {
       return;
     }
 
-    // Ubah protokol http/https menjadi ws/wss
-    const wsBaseUrl = BASE_URL.replace(/^http/, 'ws');
+    // Ubah port 8000 (gateway) ke 8002 (chat service) dan ganti protokol ke ws
+    const wsBaseUrl = BASE_URL.replace(/:8000$/, ':8002').replace(/^http/, 'ws');
     const wsUrl = `${wsBaseUrl}/api/v1/chat/ws/${roomId}?token=${token}`;
 
     console.log('[useChatWebSocket] Menghubungkan ke WebSocket:', wsUrl);
