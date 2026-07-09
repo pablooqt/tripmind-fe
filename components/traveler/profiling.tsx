@@ -10,13 +10,13 @@ import {
   SafeAreaView,
   KeyboardAvoidingView,
   Platform,
-  Alert,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import * as Location from 'expo-location';
 import { getRecommendationsByPreference, submitTravelerProfiling } from '@/services/api';
 import { useAuth } from '@/context/AuthContext';
+import { useAlert } from '@/context/AlertContext';
 
 const getMaxDays = (monthStr: string, yearStr: string): number => {
   const m = parseInt(monthStr, 10);
@@ -44,6 +44,7 @@ const getMaxDays = (monthStr: string, yearStr: string): number => {
 export default function TravelerProfiling() {
   const router = useRouter();
   const { setUserLocation } = useAuth();
+  const { showAlert } = useAlert();
   const { width: screenWidth, height: screenHeight } = useWindowDimensions();
   const scrollViewRef = useRef<ScrollView>(null);
 
@@ -147,11 +148,11 @@ export default function TravelerProfiling() {
   const handleNext = () => {
     if (currentStep === 1) {
       if (!name.trim()) {
-        Alert.alert('Eits, tunggu dulu!', 'Tolong masukkan nama panggilan Anda agar AI kami bisa menyapa Anda dengan akrab.');
+        showAlert('Eits, tunggu dulu!', 'Tolong masukkan nama panggilan Anda agar AI kami bisa menyapa Anda dengan akrab.', 'info');
         return;
       }
       if (!birthday.month || !birthday.day || !birthday.year) {
-        Alert.alert('Tanggal Lahir Kosong', 'Tolong isi kolom Bulan, Hari, dan Tahun agar kami bisa menyesuaikan tempat wisata berdasarkan usia Anda.');
+        showAlert('Tanggal Lahir Kosong', 'Tolong isi kolom Bulan, Hari, dan Tahun agar kami bisa menyesuaikan tempat wisata berdasarkan usia Anda.', 'info');
         return;
       }
       
@@ -160,37 +161,37 @@ export default function TravelerProfiling() {
       const yNum = parseInt(birthday.year, 10);
       
       if (isNaN(mNum) || mNum < 1 || mNum > 12) {
-        Alert.alert('Bulan Tidak Valid', 'Tolong isi kolom Bulan dengan angka 01-12.');
+        showAlert('Bulan Tidak Valid', 'Tolong isi kolom Bulan dengan angka 01-12.', 'error');
         return;
       }
       
       const maxDays = getMaxDays(birthday.month, birthday.year);
       if (isNaN(dNum) || dNum < 1 || dNum > maxDays) {
-        Alert.alert('Hari Tidak Valid', `Bulan dan tahun yang Anda pilih hanya memiliki ${maxDays} hari. Tolong sesuaikan.`);
+        showAlert('Hari Tidak Valid', `Bulan dan tahun yang Anda pilih hanya memiliki ${maxDays} hari. Tolong sesuaikan.`, 'error');
         return;
       }
       
       const currentYear = new Date().getFullYear();
       if (isNaN(yNum) || yNum < 1900 || yNum > currentYear) {
-        Alert.alert('Tahun Tidak Valid', `Tolong masukkan tahun lahir yang valid antara 1900 dan ${currentYear}.`);
+        showAlert('Tahun Tidak Valid', `Tolong masukkan tahun lahir yang valid antara 1900 dan ${currentYear}.`, 'error');
         return;
       }
     }
 
     if (currentStep === 2) {
       if (selectedVibes.length === 0) {
-        Alert.alert('Pilih Vibe Anda', 'Tolong pilih setidaknya satu vibe Bali yang menarik minat Anda.');
+        showAlert('Pilih Vibe Anda', 'Tolong pilih setidaknya satu vibe Bali yang menarik minat Anda.', 'info');
         return;
       }
       if (!selectedSpeed) {
-        Alert.alert('Pilih Kecepatan Perjalanan', 'Tolong pilih seberapa cepat Anda ingin berpindah tempat wisata.');
+        showAlert('Pilih Kecepatan Perjalanan', 'Tolong pilih seberapa cepat Anda ingin berpindah tempat wisata.', 'info');
         return;
       }
     }
 
     if (currentStep === 3) {
       if (!selectedSpice) {
-        Alert.alert('Pilih Toleransi Pedas', 'Tolong pilih tingkat toleransi makanan pedas Anda.');
+        showAlert('Pilih Toleransi Pedas', 'Tolong pilih tingkat toleransi makanan pedas Anda.', 'info');
         return;
       }
       // Diet / Alergi boleh kosong (opsional)
@@ -198,7 +199,7 @@ export default function TravelerProfiling() {
 
     if (currentStep === 4) {
       if (!selectedPersona) {
-        Alert.alert('Pilih Persona Wisata', 'Tolong pilih tipe persona liburan yang paling menggambarkan diri Anda.');
+        showAlert('Pilih Persona Wisata', 'Tolong pilih tipe persona liburan yang paling menggambarkan diri Anda.', 'info');
         return;
       }
     }
@@ -250,8 +251,9 @@ export default function TravelerProfiling() {
       })
       .catch((error) => {
         console.warn('Gagal menyimpan profil preferensi:', error);
-        alert('Gagal menyimpan preferensi Anda ke server. Masuk ke aplikasi...');
-        router.replace('/(tabs)/explore');
+        showAlert('Error', 'Gagal menyimpan preferensi Anda ke server. Masuk ke aplikasi...', 'error', () => {
+          router.replace('/(tabs)/explore');
+        });
       });
   };
 

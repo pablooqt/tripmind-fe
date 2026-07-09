@@ -19,6 +19,7 @@ import {
   selectGuideForTrip 
 } from '@/services/api';
 import { useAuth } from '@/context/AuthContext';
+import { useAlert } from '@/context/AlertContext';
 
 
 
@@ -34,6 +35,7 @@ import CustomCalendarModal from './create-trip/CustomCalendarModal';
 
 export default function TravelerCreateTrip() {
   const { isAuthenticated, profile, userLocation } = useAuth();
+  const { showAlert } = useAlert();
 
   // Flow steps: 1 (Form), 2 (Select Spots), 3 (Favorites Grid), 4 (Guides)
   const [currentStep, setCurrentStep] = useState<1 | 2 | 3 | 4>(1);
@@ -162,15 +164,15 @@ export default function TravelerCreateTrip() {
 
   const handleContinueForm = () => {
     if (!tripName.trim()) {
-      alert('Please enter a trip name.');
+      showAlert('Trip Name Required', 'Please enter a trip name.', 'info');
       return;
     }
     if (!rangeStart || !rangeEnd) {
-      alert('Please select trip dates.');
+      showAlert('Dates Required', 'Please select trip dates.', 'info');
       return;
     }
     if (!partner) {
-      alert('Please select traveling partner.');
+      showAlert('Partner Required', 'Please select traveling partner.', 'info');
       return;
     }
     setCurrentStep(2);
@@ -191,11 +193,11 @@ export default function TravelerCreateTrip() {
 
   const handleSearchGuides = async () => {
     if (!profile) {
-      alert('Please log in to continue.');
+      showAlert('Authentication Required', 'Please log in to continue.', 'error');
       return;
     }
     if (selectedSpots.length < 2) {
-      alert('Please select at least 2 spots.');
+      showAlert('Select Spots', 'Please select at least 2 spots.', 'info');
       return;
     }
 
@@ -204,7 +206,7 @@ export default function TravelerCreateTrip() {
 
     // 1. Hitung total hari dari start_date & end_date
     if (!rangeStart || !rangeEnd) {
-      alert('Please select trip dates.');
+      showAlert('Dates Required', 'Please select trip dates.', 'info');
       setLoadingGuides(false);
       setCurrentStep(1);
       return;
@@ -279,7 +281,7 @@ export default function TravelerCreateTrip() {
       setGuidesList(mappedGuides);
     } catch (e: any) {
       console.warn('[CreateTrip] Gagal membuat trip & mencari guide:', e);
-      alert(e.message || 'Failed to create trip and search guides.');
+      showAlert('Error', e.message || 'Failed to create trip and search guides.', 'error');
       setCurrentStep(2);
     } finally {
       setLoadingGuides(false);
@@ -288,11 +290,11 @@ export default function TravelerCreateTrip() {
 
   const handleSelectGuideAndCreateChat = async () => {
     if (!itineraryId) {
-      alert('Itinerary not created yet.');
+      showAlert('Error', 'Itinerary not created yet.', 'error');
       return;
     }
     if (!selectedGuideId) {
-      alert('Please select a guide first.');
+      showAlert('Guide Required', 'Please select a guide first.', 'info');
       return;
     }
 
@@ -301,8 +303,6 @@ export default function TravelerCreateTrip() {
       const res = await selectGuideForTrip(itineraryId, selectedGuideId);
       let roomId = res?.data?.room_id;
       
-      alert(`Successfully created trip plan for "${tripName}" and initiated chat room with guide!`);
-      
       if (!roomId) {
         roomId = `room_${itineraryId}_${selectedGuideId}`;
       }
@@ -310,13 +310,15 @@ export default function TravelerCreateTrip() {
       const selectedGuideObj = guidesList.find(g => g.id === selectedGuideId);
       const selectedGuideName = selectedGuideObj ? selectedGuideObj.name : 'Guide';
 
-      router.replace({
-        pathname: '/chat-room/[id]',
-        params: { id: roomId, name: selectedGuideName }
-      } as any);
+      showAlert('Success', `Successfully created trip plan for "${tripName}" and initiated chat room with guide!`, 'success', () => {
+        router.replace({
+          pathname: '/chat-room/[id]',
+          params: { id: roomId, name: selectedGuideName }
+        } as any);
+      });
     } catch (e: any) {
       console.warn('[CreateTrip] Gagal menunjuk guide:', e);
-      alert(e.message || 'Failed to select guide.');
+      showAlert('Error', e.message || 'Failed to select guide.', 'error');
     }
   };
 

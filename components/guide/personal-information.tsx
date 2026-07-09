@@ -1,9 +1,133 @@
-import React from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, SafeAreaView, ScrollView, TextInput, KeyboardAvoidingView, Platform } from 'react-native';
+import React, { useState, useEffect } from 'react';
+import {
+  View, Text, StyleSheet, TouchableOpacity, SafeAreaView, ScrollView,
+  TextInput, KeyboardAvoidingView, Platform, ActivityIndicator, Modal, Alert, Image
+} from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import * as ImagePicker from 'expo-image-picker';
 import { COLORS } from '@/components/home/colors';
+import { getAuthUserProfile, updateAuthUserProfile, updateGuideProfile, uploadAuthPhoto } from '@/services/api';
 
 export default function PersonalInformationScreen({ onBack }: { onBack: () => void }) {
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+
+  // Form state
+  const [name, setName] = useState('');
+  const [email, setEmail] = useState('');
+  const [bio, setBio] = useState('');
+  const [dutyArea, setDutyArea] = useState('');
+  const [specialization, setSpecialization] = useState('');
+  const [languages, setLanguages] = useState<string[]>([]);
+  const [photoUri, setPhotoUri] = useState<string | null>(null);
+  const [uploadingPhoto, setUploadingPhoto] = useState(false);
+
+  // Add language modal
+  const [showAddLang, setShowAddLang] = useState(false);
+  const [newLang, setNewLang] = useState('');
+
+  useEffect(() => {
+    fetchProfile();
+  }, []);
+
+  const fetchProfile = async () => {
+    try {
+      setLoading(true);
+      const data = await getAuthUserProfile();
+      setName(data?.name || '');
+      setEmail(data?.email || '');
+      setBio(data?.bio || '');
+      setDutyArea(data?.duty_area || '');
+      setSpecialization(data?.specialization || '');
+      setPhotoUri(data?.photo_url || null);
+      const rawLangs = data?.languages_spoken || '';
+      setLanguages(rawLangs ? rawLangs.split(',').map((l: string) => l.trim()).filter(Boolean) : []);
+    } catch (e) {
+      console.warn('[PersonalInfo] Gagal memuat profil:', e);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleRemoveLanguage = (idx: number) => {
+    setLanguages(prev => prev.filter((_, i) => i !== idx));
+  };
+
+  const handleAddLanguage = () => {
+    const trimmed = newLang.trim();
+    if (!trimmed) return;
+    if (!languages.includes(trimmed)) {
+      setLanguages(prev => [...prev, trimmed]);
+    }
+    setNewLang('');
+    setShowAddLang(false);
+  };
+
+  const handleChangePhoto = async () => {
+    const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (!permission.granted) {
+      Alert.alert('Izin diperlukan', 'Izinkan akses galeri untuk mengganti foto profil.');
+      return;
+    }
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      allowsEditing: true,
+      aspect: [1, 1],
+      quality: 0.8,
+    });
+    if (result.canceled) return;
+    const asset = result.assets[0];
+    try {
+      setUploadingPhoto(true);
+      const ext = asset.uri.split('.').pop() || 'jpg';
+      const mimeType = asset.mimeType || `image/${ext}`;
+      await uploadAuthPhoto(asset.uri, mimeType, `guide_photo_${Date.now()}.${ext}`);
+      setPhotoUri(asset.uri);
+    } catch (e: any) {
+      Alert.alert('Gagal', 'Foto tidak berhasil diunggah: ' + (e?.message || ''));
+    } finally {
+      setUploadingPhoto(false);
+    }
+  };
+
+  const handleSave = async () => {
+    try {
+      setSaving(true);
+      // 1. Update nama via core endpoint
+      await updateAuthUserProfile(name);
+      // 2. Update bio, languages, duty area, specialization via guide endpoint
+      await updateGuideProfile({
+        bio: bio,
+        languages_spoken: languages.join(','),
+        duty_area: dutyArea,
+        specialization: specialization,
+      });
+      Alert.alert('Berhasil', 'Informasi profil berhasil diperbarui.');
+      onBack();
+    } catch (e: any) {
+      Alert.alert('Gagal', e?.message || 'Terjadi kesalahan saat menyimpan.');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  if (loading) {
+    return (
+      <SafeAreaView style={styles.safeContainer}>
+        <View style={styles.headerRow}>
+          <TouchableOpacity activeOpacity={0.8} onPress={onBack} style={styles.headerBtn}>
+            <Ionicons name="arrow-back" size={24} color={COLORS.brand950} />
+          </TouchableOpacity>
+          <Text style={styles.headerTitle}>Personal Information</Text>
+          <View style={styles.headerBtn} />
+        </View>
+        <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
+          <ActivityIndicator size="large" color={COLORS.brand700} />
+        </View>
+      </SafeAreaView>
+    );
+  }
+
   return (
     <SafeAreaView style={styles.safeContainer}>
       <View style={styles.headerRow}>
@@ -11,66 +135,109 @@ export default function PersonalInformationScreen({ onBack }: { onBack: () => vo
           <Ionicons name="arrow-back" size={24} color={COLORS.brand950} />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Personal Information</Text>
-        <TouchableOpacity activeOpacity={0.8} style={styles.headerBtn}>
-          <Ionicons name="ellipsis-vertical" size={24} color={COLORS.gray500} />
-        </TouchableOpacity>
+        <View style={styles.headerBtn} />
       </View>
 
-      <KeyboardAvoidingView 
-        style={{ flex: 1 }} 
-        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-      >
+      <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
         <ScrollView style={styles.scrollView} contentContainerStyle={styles.contentContainer} showsVerticalScrollIndicator={false}>
           <Text style={styles.desc}>Update your profile details to connect with travelers.</Text>
 
-          {/* Avatar Section */}
+          {/* Avatar / Change Photo */}
           <View style={styles.avatarSection}>
-            <View style={styles.avatarCircle} />
-            <TouchableOpacity style={styles.changePhotoBtn}>
+            <View style={styles.avatarCircle}>
+              {photoUri ? (
+                <Image source={{ uri: photoUri }} style={styles.avatarImage} />
+              ) : (
+                <Ionicons name="person" size={36} color="#A8A8A8" />
+              )}
+              {uploadingPhoto && (
+                <View style={styles.avatarOverlay}>
+                  <ActivityIndicator size="small" color={COLORS.white} />
+                </View>
+              )}
+            </View>
+            <TouchableOpacity style={styles.changePhotoBtn} onPress={handleChangePhoto} disabled={uploadingPhoto}>
               <Text style={styles.changePhotoText}>Change Photo</Text>
             </TouchableOpacity>
-            <Text style={styles.recommendedText}>Recommended size: 500x500px</Text>
+            <Text style={styles.recommendedText}>Recommended size: 500×500px</Text>
           </View>
 
-          {/* Form Fields */}
+          {/* Full Name */}
           <View style={styles.formGroup}>
             <Text style={styles.label}>Full Name</Text>
-            <TextInput style={styles.input} value="Pranoto" />
+            <TextInput
+              style={styles.input}
+              value={name}
+              onChangeText={setName}
+              placeholder="Your full name"
+              placeholderTextColor={COLORS.gray400}
+            />
           </View>
 
+          {/* Email — read-only */}
           <View style={styles.formGroup}>
             <Text style={styles.label}>Email Address</Text>
-            <TextInput style={styles.input} value="pranotokepalaemail@gmail.com" keyboardType="email-address" />
+            <TextInput
+              style={[styles.input, styles.readOnlyInput]}
+              value={email}
+              editable={false}
+            />
+            <Text style={styles.helperText}>Email tidak dapat diubah karena digunakan sebagai login utama.</Text>
           </View>
 
-          <View style={styles.formGroup}>
-            <Text style={styles.label}>Phone Number</Text>
-            <TextInput style={styles.input} value="+62 812 345 678" keyboardType="phone-pad" />
-          </View>
-
+          {/* Bio */}
           <View style={styles.formGroup}>
             <Text style={styles.label}>Bio</Text>
-            <TextInput 
-              style={[styles.input, styles.textArea]} 
-              value="udah pernah imo bim?" 
-              multiline 
+            <TextInput
+              style={[styles.input, styles.textArea]}
+              value={bio}
+              onChangeText={setBio}
+              placeholder="Describe yourself as a guide..."
+              placeholderTextColor={COLORS.gray400}
+              multiline
               numberOfLines={4}
+              maxLength={500}
             />
-            <Text style={styles.charCount}>124 / 150 characters</Text>
+            <Text style={styles.charCount}>{bio.length} / 500 characters</Text>
           </View>
 
+          {/* Duty Area */}
+          <View style={styles.formGroup}>
+            <Text style={styles.label}>Duty Area</Text>
+            <TextInput
+              style={styles.input}
+              value={dutyArea}
+              onChangeText={setDutyArea}
+              placeholder="e.g. Ubud, Kuta, Seminyak"
+              placeholderTextColor={COLORS.gray400}
+            />
+          </View>
+
+          {/* Specialization */}
+          <View style={styles.formGroup}>
+            <Text style={styles.label}>Specialization</Text>
+            <TextInput
+              style={styles.input}
+              value={specialization}
+              onChangeText={setSpecialization}
+              placeholder="e.g. Cultural Guide, Adventure, Culinary"
+              placeholderTextColor={COLORS.gray400}
+            />
+          </View>
+
+          {/* Languages Spoken */}
           <View style={styles.formGroup}>
             <Text style={styles.label}>Languages Spoken</Text>
             <View style={styles.langRow}>
-              <View style={styles.langTag}>
-                <Text style={styles.langTagText}>English</Text>
-                <TouchableOpacity><Ionicons name="close" size={14} color={COLORS.brand700} /></TouchableOpacity>
-              </View>
-              <View style={styles.langTag}>
-                <Text style={styles.langTagText}>Mandarin</Text>
-                <TouchableOpacity><Ionicons name="close" size={14} color={COLORS.brand700} /></TouchableOpacity>
-              </View>
-              <TouchableOpacity style={styles.addLangBtn}>
+              {languages.map((lang, idx) => (
+                <View key={idx} style={styles.langTag}>
+                  <Text style={styles.langTagText}>{lang}</Text>
+                  <TouchableOpacity onPress={() => handleRemoveLanguage(idx)}>
+                    <Ionicons name="close" size={14} color={COLORS.brand700} />
+                  </TouchableOpacity>
+                </View>
+              ))}
+              <TouchableOpacity style={styles.addLangBtn} onPress={() => setShowAddLang(true)}>
                 <Ionicons name="add" size={14} color={COLORS.brand700} />
                 <Text style={styles.addLangText}>Add Language</Text>
               </TouchableOpacity>
@@ -84,168 +251,127 @@ export default function PersonalInformationScreen({ onBack }: { onBack: () => vo
         <TouchableOpacity style={styles.btnCancel} onPress={onBack}>
           <Text style={styles.btnCancelText}>Cancel</Text>
         </TouchableOpacity>
-        <TouchableOpacity style={styles.btnSave}>
-          <Text style={styles.btnSaveText}>Save Changes</Text>
+        <TouchableOpacity style={[styles.btnSave, saving && { opacity: 0.7 }]} onPress={handleSave} disabled={saving}>
+          {saving
+            ? <ActivityIndicator size="small" color={COLORS.white} />
+            : <Text style={styles.btnSaveText}>Save Changes</Text>
+          }
         </TouchableOpacity>
       </View>
+
+      {/* Add Language Modal */}
+      <Modal visible={showAddLang} transparent animationType="fade" onRequestClose={() => setShowAddLang(false)}>
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalBox}>
+            <Text style={styles.modalTitle}>Add Language</Text>
+            <TextInput
+              style={styles.modalInput}
+              value={newLang}
+              onChangeText={setNewLang}
+              placeholder="e.g. Japanese"
+              placeholderTextColor={COLORS.gray400}
+              autoFocus
+            />
+            <View style={styles.modalBtns}>
+              <TouchableOpacity style={styles.modalBtnCancel} onPress={() => { setShowAddLang(false); setNewLang(''); }}>
+                <Text style={styles.modalBtnCancelText}>Cancel</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={styles.modalBtnAdd} onPress={handleAddLanguage}>
+                <Text style={styles.modalBtnAddText}>Add</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
-  safeContainer: {
-    flex: 1,
-    backgroundColor: COLORS.white,
-  },
+  safeContainer: { flex: 1, backgroundColor: COLORS.white },
   headerRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 16,
-    paddingTop: 12,
-    paddingBottom: 16,
-    backgroundColor: COLORS.white,
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
+    paddingHorizontal: 16, paddingTop: 12, paddingBottom: 16, backgroundColor: COLORS.white,
   },
-  headerBtn: {
-    padding: 4,
-  },
-  headerTitle: {
-    fontSize: 16,
-    fontWeight: 'bold',
-    color: COLORS.brand950,
-  },
-  scrollView: {
-    flex: 1,
-  },
-  contentContainer: {
-    paddingHorizontal: 24,
-    paddingTop: 8,
-    paddingBottom: 40,
-  },
-  desc: {
-    fontSize: 12,
-    color: COLORS.gray500,
-    marginBottom: 24,
-  },
-  avatarSection: {
-    alignItems: 'center',
-    marginBottom: 32,
-  },
+  headerBtn: { padding: 4, width: 32 },
+  headerTitle: { fontSize: 16, fontWeight: 'bold', color: COLORS.brand950 },
+  scrollView: { flex: 1 },
+  contentContainer: { paddingHorizontal: 24, paddingTop: 8, paddingBottom: 40 },
+  desc: { fontSize: 12, color: COLORS.gray500, marginBottom: 24 },
+  // Avatar / Photo
+  avatarSection: { alignItems: 'center', marginBottom: 28 },
   avatarCircle: {
-    width: 80,
-    height: 80,
-    borderRadius: 40,
-    backgroundColor: '#D9D9D9',
-    marginBottom: 12,
+    width: 90, height: 90, borderRadius: 45,
+    backgroundColor: '#D9D9D9', marginBottom: 12,
+    alignItems: 'center', justifyContent: 'center',
+    overflow: 'hidden', borderWidth: 3, borderColor: COLORS.brand200,
+  },
+  avatarImage: { width: 90, height: 90, borderRadius: 45 },
+  avatarOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(0,0,0,0.4)',
+    alignItems: 'center', justifyContent: 'center',
   },
   changePhotoBtn: {
-    backgroundColor: COLORS.brand700,
-    paddingHorizontal: 16,
-    paddingVertical: 6,
-    borderRadius: 16,
-    marginBottom: 8,
+    backgroundColor: COLORS.brand700, paddingHorizontal: 18,
+    paddingVertical: 7, borderRadius: 20, marginBottom: 6,
   },
-  changePhotoText: {
-    color: COLORS.white,
-    fontSize: 12,
-    fontWeight: 'bold',
-  },
-  recommendedText: {
-    fontSize: 10,
-    color: COLORS.gray400,
-  },
-  formGroup: {
-    marginBottom: 20,
-  },
-  label: {
-    fontSize: 12,
-    fontWeight: 'bold',
-    color: COLORS.brand950,
-    marginBottom: 8,
-  },
+  changePhotoText: { color: COLORS.white, fontSize: 13, fontWeight: 'bold' },
+  recommendedText: { fontSize: 10, color: COLORS.gray400 },
+  formGroup: { marginBottom: 20 },
+  label: { fontSize: 12, fontWeight: 'bold', color: COLORS.brand950, marginBottom: 8 },
   input: {
-    borderWidth: 1,
-    borderColor: COLORS.border,
-    borderRadius: 8,
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    fontSize: 14,
-    color: COLORS.brand950,
+    borderWidth: 1, borderColor: COLORS.border, borderRadius: 8,
+    paddingHorizontal: 16, paddingVertical: 12, fontSize: 14, color: COLORS.brand950,
   },
-  textArea: {
-    height: 100,
-    textAlignVertical: 'top',
-  },
-  charCount: {
-    fontSize: 10,
-    color: COLORS.gray400,
-    textAlign: 'right',
-    marginTop: 4,
-  },
-  langRow: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 8,
-  },
+  readOnlyInput: { backgroundColor: '#F5F5F5', color: COLORS.gray500 },
+  helperText: { fontSize: 10, color: COLORS.gray400, marginTop: 4 },
+  textArea: { height: 100, textAlignVertical: 'top' },
+  charCount: { fontSize: 10, color: COLORS.gray400, textAlign: 'right', marginTop: 4 },
+  langRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
   langTag: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: COLORS.brand50,
-    borderWidth: 1,
-    borderColor: COLORS.brand200,
-    borderRadius: 16,
-    paddingHorizontal: 12,
-    paddingVertical: 6,
+    flexDirection: 'row', alignItems: 'center', backgroundColor: COLORS.brand50,
+    borderWidth: 1, borderColor: COLORS.brand200, borderRadius: 16, paddingHorizontal: 12, paddingVertical: 6,
   },
-  langTagText: {
-    fontSize: 12,
-    color: COLORS.brand700,
-    marginRight: 4,
-  },
+  langTagText: { fontSize: 12, color: COLORS.brand700, marginRight: 4 },
   addLangBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    borderWidth: 1,
-    borderColor: COLORS.border,
-    borderRadius: 16,
-    paddingHorizontal: 12,
-    paddingVertical: 6,
+    flexDirection: 'row', alignItems: 'center', borderWidth: 1, borderColor: COLORS.border,
+    borderRadius: 16, paddingHorizontal: 12, paddingVertical: 6,
   },
-  addLangText: {
-    fontSize: 12,
-    color: COLORS.gray500,
-    marginLeft: 4,
-  },
+  addLangText: { fontSize: 12, color: COLORS.gray500, marginLeft: 4 },
   footer: {
-    flexDirection: 'row',
-    padding: 20,
-    paddingTop: 12,
-    backgroundColor: COLORS.white,
-    borderTopWidth: 1,
-    borderTopColor: COLORS.border,
-    gap: 12,
+    flexDirection: 'row', padding: 20, paddingTop: 12, backgroundColor: COLORS.white,
+    borderTopWidth: 1, borderTopColor: COLORS.border, gap: 12,
   },
   btnCancel: {
-    flex: 1,
-    paddingVertical: 14,
-    borderRadius: 24,
-    borderWidth: 1,
-    borderColor: COLORS.border,
-    alignItems: 'center',
+    flex: 1, paddingVertical: 14, borderRadius: 24, borderWidth: 1,
+    borderColor: COLORS.border, alignItems: 'center',
   },
-  btnCancelText: {
-    color: COLORS.gray500,
-    fontWeight: 'bold',
-  },
+  btnCancelText: { color: COLORS.gray500, fontWeight: 'bold' },
   btnSave: {
-    flex: 1,
-    paddingVertical: 14,
-    borderRadius: 24,
-    backgroundColor: COLORS.brand700,
-    alignItems: 'center',
+    flex: 1, paddingVertical: 14, borderRadius: 24, backgroundColor: COLORS.brand700, alignItems: 'center',
   },
-  btnSaveText: {
-    color: COLORS.white,
-    fontWeight: 'bold',
+  btnSaveText: { color: COLORS.white, fontWeight: 'bold' },
+  // Modal
+  modalOverlay: {
+    flex: 1, backgroundColor: 'rgba(0,0,0,0.45)', alignItems: 'center', justifyContent: 'center',
   },
+  modalBox: {
+    backgroundColor: COLORS.white, borderRadius: 16, padding: 24, width: '80%',
+  },
+  modalTitle: { fontSize: 16, fontWeight: 'bold', color: COLORS.brand950, marginBottom: 16 },
+  modalInput: {
+    borderWidth: 1, borderColor: COLORS.border, borderRadius: 8,
+    paddingHorizontal: 16, paddingVertical: 12, fontSize: 14, color: COLORS.brand950, marginBottom: 20,
+  },
+  modalBtns: { flexDirection: 'row', gap: 12 },
+  modalBtnCancel: {
+    flex: 1, paddingVertical: 12, borderRadius: 24, borderWidth: 1,
+    borderColor: COLORS.border, alignItems: 'center',
+  },
+  modalBtnCancelText: { color: COLORS.gray500, fontWeight: 'bold', fontSize: 13 },
+  modalBtnAdd: {
+    flex: 1, paddingVertical: 12, borderRadius: 24, backgroundColor: COLORS.brand700, alignItems: 'center',
+  },
+  modalBtnAddText: { color: COLORS.white, fontWeight: 'bold', fontSize: 13 },
 });

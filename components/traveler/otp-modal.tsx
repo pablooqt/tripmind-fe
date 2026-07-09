@@ -7,6 +7,7 @@ import {
   Modal,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { useAlert } from '@/context/AlertContext';
 
 interface OtpModalProps {
   visible: boolean;
@@ -16,6 +17,7 @@ interface OtpModalProps {
 }
 
 export default function OtpModal({ visible, onClose, onVerify, email }: OtpModalProps) {
+  const { showAlert } = useAlert();
   const [otp, setOtp] = useState<string[]>(['', '', '', '', '', '', '', '']);
 
   const otpRef0 = useRef<TextInput>(null);
@@ -57,7 +59,7 @@ export default function OtpModal({ visible, onClose, onVerify, email }: OtpModal
   const handleVerify = () => {
     const enteredOtp = otp.join('');
     if (enteredOtp.length < 8) {
-      alert('Harap isi lengkap 8-digit kode keamanan dari email Anda');
+      showAlert('Incomplete OTP', 'Harap isi lengkap 8-digit kode keamanan dari email Anda', 'info');
       return;
     }
     onVerify(enteredOtp);

@@ -1,11 +1,12 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, Image, ActivityIndicator, Alert } from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet, Image, ActivityIndicator } from 'react-native';
 import { ScrollView } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter, useNavigation } from 'expo-router';
 import { COLORS } from '@/components/home/colors';
 import { useAuth } from '@/context/AuthContext';
 import { getAuthUserProfile, deleteAuthAccount } from '@/services/api';
+import { useAlert } from '@/context/AlertContext';
 
 type IoniconName = React.ComponentProps<typeof Ionicons>['name'];
 
@@ -19,6 +20,7 @@ export default function SettingsList() {
   const router = useRouter();
   const navigation = useNavigation();
   const { logout } = useAuth();
+  const { showAlert } = useAlert();
   
   const [profile, setProfile] = useState<any>(null);
   const [loading, setLoading] = useState(true);
@@ -47,47 +49,37 @@ export default function SettingsList() {
   }, [navigation]);
 
   const handleLogout = () => {
-    Alert.alert(
+    showAlert(
       'Log Out',
       'Are you sure you want to log out from your account?',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        { 
-          text: 'Log Out', 
-          style: 'destructive',
-          onPress: async () => {
-            try {
-              await logout();
-              router.replace('/login');
-            } catch (e) {
-              console.warn('Logout failed:', e);
-            }
-          }
+      'confirm',
+      async () => {
+        try {
+          await logout();
+          router.replace('/login');
+        } catch (e) {
+          console.warn('Logout failed:', e);
         }
-      ]
+      },
+      { confirmText: 'Log Out', cancelText: 'Cancel' }
     );
   };
 
   const handleDeleteAccount = () => {
-    Alert.alert(
+    showAlert(
       'Delete Account',
       'WARNING: Deleting your account is permanent. All your data and trip plans will be lost forever. Do you wish to proceed?',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Delete Permanently',
-          style: 'destructive',
-          onPress: async () => {
-            try {
-              await deleteAuthAccount();
-              await logout();
-              router.replace('/login');
-            } catch (e: any) {
-              Alert.alert('Error', e.message || 'Failed to delete account.');
-            }
-          }
+      'confirm',
+      async () => {
+        try {
+          await deleteAuthAccount();
+          await logout();
+          router.replace('/login');
+        } catch (e: any) {
+          showAlert('Error', e.message || 'Failed to delete account.', 'error');
         }
-      ]
+      },
+      { confirmText: 'Delete', cancelText: 'Cancel' }
     );
   };
 

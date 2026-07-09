@@ -13,8 +13,11 @@ import Animated, {
 } from 'react-native-reanimated';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '@/context/AuthContext';
+import { useAlert } from '@/context/AlertContext';
 import { DestinationCard, getFirstPhotoUrl } from '@/services/api';
 import { COLORS } from '@/components/home/colors';
+import { Colors } from '@/constants/theme';
+
 
 const { width: W } = Dimensions.get('window');
 const SWIPE_THRESHOLD = 80;
@@ -107,6 +110,7 @@ export default function ExploreCard({
   const { userLocation } = useAuth();
   const [galleryIndex, setGalleryIndex] = useState(0);
   const [isDraggingGallery, setIsDraggingGallery] = useState(false); // Deteksi geser slider foto
+  const { showAlert } = useAlert();
 
   const reset = useCallback(() => {
     x.value = 0;
@@ -191,6 +195,10 @@ export default function ExploreCard({
 
   // Rekomendasi kuliner terdekat
   const bites = getBitesByRegency(destination.regency || '');
+
+  const handleInfoPress = useCallback(() => {
+    showAlert('Info penggunaan tab explore', 'Geser ke kanan untuk like, geser ke kiri untuk skip, klik tombol map untuk melihat detail lokasi', 'info');
+  }, [showAlert]);
 
   return (
     <GestureDetector gesture={pan}>
@@ -341,6 +349,12 @@ export default function ExploreCard({
 
 
         {/* Floating Map Button (tetap/fixed di pojok kanan bawah card) */}
+        <View>
+          <TouchableOpacity style={styles.fixedInfoButton}
+          onPress={handleInfoPress}>
+            <Ionicons name="information-circle-outline" size={20} color="#FFFFFF" />
+          </TouchableOpacity>
+
         <TouchableOpacity
           style={styles.fixedMapButton}
           onPress={() => {
@@ -351,6 +365,7 @@ export default function ExploreCard({
         >
           <Ionicons name="map-outline" size={20} color="#FFFFFF" />
         </TouchableOpacity>
+        </View>
 
       </Animated.View>
     </GestureDetector>
@@ -594,6 +609,23 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.15,
     shadowRadius: 5,
     elevation: 4,
-    zIndex: 90, // melayang di atas scrollview, di bawah stamp
+    zIndex: 90, 
+  },
+  fixedInfoButton: {
+    position: 'absolute',
+    bottom: 80,
+    right: 20,
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: COLORS.brand950,
+    justifyContent: 'center',
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.15,
+    shadowRadius: 5,
+    elevation: 4,
+    zIndex: 90, 
   },
 });

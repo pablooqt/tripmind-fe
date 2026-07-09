@@ -1,8 +1,10 @@
-import React from 'react';
-import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
+import React, { useState, useEffect } from 'react';
+import { View, Text, TouchableOpacity, StyleSheet, Image } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { COLORS } from './colors';
 import SafeHeaderWrapper from '../common/SafeHeaderWrapper';
+import { getAuthUserProfile } from '@/services/api';
+import { useNavigation } from 'expo-router';
 
 interface Props {
   onMapPress?: () => void;
@@ -10,6 +12,30 @@ interface Props {
 }
 
 export default function HomeHeader({ onMapPress, onAvatarPress }: Props) {
+  const [photoUrl, setPhotoUrl] = useState<string | null>(null);
+  const navigation = useNavigation();
+
+  const fetchProfile = async () => {
+    try {
+      const profile = await getAuthUserProfile();
+      if (profile && profile.photo_url) {
+        setPhotoUrl(profile.photo_url);
+      } else {
+        setPhotoUrl(null);
+      }
+    } catch (err) {
+      // Gracefully ignore error on home feed initial load
+    }
+  };
+
+  useEffect(() => {
+    fetchProfile();
+    const unsubscribe = navigation.addListener('focus', () => {
+      fetchProfile();
+    });
+    return unsubscribe;
+  }, [navigation]);
+
   return (
     <SafeHeaderWrapper>
       {/* Map Icon */}
@@ -25,7 +51,11 @@ export default function HomeHeader({ onMapPress, onAvatarPress }: Props) {
 
       {/* Avatar */}
       <TouchableOpacity style={styles.avatar} onPress={onAvatarPress} activeOpacity={0.8}>
-        <Ionicons name="person" size={17} color={COLORS.white} />
+        {photoUrl ? (
+          <Image source={{ uri: photoUrl }} style={styles.avatarImage} />
+        ) : (
+          <Ionicons name="person" size={17} color={COLORS.white} />
+        )}
       </TouchableOpacity>
     </SafeHeaderWrapper>
   );
@@ -57,5 +87,11 @@ const styles = StyleSheet.create({
     backgroundColor: COLORS.brand600,
     alignItems: 'center',
     justifyContent: 'center',
+    overflow: 'hidden',
+  },
+  avatarImage: {
+    width: 38,
+    height: 38,
+    borderRadius: 19,
   },
 });
