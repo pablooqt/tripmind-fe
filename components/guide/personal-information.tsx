@@ -8,6 +8,29 @@ import * as ImagePicker from 'expo-image-picker';
 import { COLORS } from '@/components/home/colors';
 import { getAuthUserProfile, updateAuthUserProfile, updateGuideProfile, uploadAuthPhoto } from '@/services/api';
 
+const BALI_REGIONS = [
+  'Badung',
+  'Denpasar',
+  'Gianyar',
+  'Karangasem',
+  'Buleleng',
+  'Tabanan',
+  'Klungkung',
+  'Bangli',
+  'Jembrana'
+];
+
+const GUIDE_SPECIALIZATIONS = [
+  'History & Culture',
+  'Adventure & Outdoors',
+  'Culinary & Food Tour',
+  'Nature & Trekking',
+  'Photography & Art',
+  'Wellness & Spiritual',
+  'Water Sports & Marine',
+  'Shopping & Fashion'
+];
+
 export default function PersonalInformationScreen({ onBack }: { onBack: () => void }) {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -22,9 +45,11 @@ export default function PersonalInformationScreen({ onBack }: { onBack: () => vo
   const [photoUri, setPhotoUri] = useState<string | null>(null);
   const [uploadingPhoto, setUploadingPhoto] = useState(false);
 
-  // Add language modal
+  // Modals state
   const [showAddLang, setShowAddLang] = useState(false);
   const [newLang, setNewLang] = useState('');
+  const [showAreaModal, setShowAreaModal] = useState(false);
+  const [showSpecModal, setShowSpecModal] = useState(false);
 
   useEffect(() => {
     fetchProfile();
@@ -204,25 +229,31 @@ export default function PersonalInformationScreen({ onBack }: { onBack: () => vo
           {/* Duty Area */}
           <View style={styles.formGroup}>
             <Text style={styles.label}>Duty Area</Text>
-            <TextInput
-              style={styles.input}
-              value={dutyArea}
-              onChangeText={setDutyArea}
-              placeholder="e.g. Ubud, Kuta, Seminyak"
-              placeholderTextColor={COLORS.gray400}
-            />
+            <TouchableOpacity
+              activeOpacity={0.8}
+              style={[styles.input, { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }]}
+              onPress={() => setShowAreaModal(true)}
+            >
+              <Text style={{ color: dutyArea ? COLORS.brand950 : COLORS.gray400, fontSize: 14 }}>
+                {dutyArea || 'Select your duty area'}
+              </Text>
+              <Ionicons name="chevron-down" size={18} color={COLORS.gray500} />
+            </TouchableOpacity>
           </View>
 
           {/* Specialization */}
           <View style={styles.formGroup}>
             <Text style={styles.label}>Specialization</Text>
-            <TextInput
-              style={styles.input}
-              value={specialization}
-              onChangeText={setSpecialization}
-              placeholder="e.g. Cultural Guide, Adventure, Culinary"
-              placeholderTextColor={COLORS.gray400}
-            />
+            <TouchableOpacity
+              activeOpacity={0.8}
+              style={[styles.input, { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }]}
+              onPress={() => setShowSpecModal(true)}
+            >
+              <Text style={{ color: specialization ? COLORS.brand950 : COLORS.gray400, fontSize: 14 }}>
+                {specialization || 'Select your specialization'}
+              </Text>
+              <Ionicons name="chevron-down" size={18} color={COLORS.gray500} />
+            </TouchableOpacity>
           </View>
 
           {/* Languages Spoken */}
@@ -280,6 +311,80 @@ export default function PersonalInformationScreen({ onBack }: { onBack: () => vo
                 <Text style={styles.modalBtnAddText}>Add</Text>
               </TouchableOpacity>
             </View>
+          </View>
+        </View>
+      </Modal>
+
+      {/* Duty Area Selection Modal */}
+      <Modal visible={showAreaModal} transparent animationType="slide" onRequestClose={() => setShowAreaModal(false)}>
+        <View style={styles.modalOverlay}>
+          <View style={[styles.modalBox, { maxHeight: '60%', paddingBottom: 24 }]}>
+            <Text style={styles.modalTitle}>Select Duty Area</Text>
+            <ScrollView showsVerticalScrollIndicator={false} style={{ marginBottom: 16 }}>
+              {BALI_REGIONS.map((region) => (
+                <TouchableOpacity
+                  key={region}
+                  style={[
+                    styles.regionOptionItem,
+                    dutyArea === region && styles.regionOptionItemActive
+                  ]}
+                  onPress={() => {
+                    setDutyArea(region);
+                    setShowAreaModal(false);
+                  }}
+                >
+                  <Text style={[
+                    styles.regionOptionText,
+                    dutyArea === region && styles.regionOptionTextActive
+                  ]}>
+                    {region}
+                  </Text>
+                  {dutyArea === region && (
+                    <Ionicons name="checkmark" size={18} color="#1C857C" />
+                  )}
+                </TouchableOpacity>
+              ))}
+            </ScrollView>
+            <TouchableOpacity style={styles.selectionModalCloseBtn} onPress={() => setShowAreaModal(false)}>
+              <Text style={styles.selectionModalCloseBtnText}>Close</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
+
+      {/* Specialization Selection Modal */}
+      <Modal visible={showSpecModal} transparent animationType="slide" onRequestClose={() => setShowSpecModal(false)}>
+        <View style={styles.modalOverlay}>
+          <View style={[styles.modalBox, { maxHeight: '65%', paddingBottom: 24 }]}>
+            <Text style={styles.modalTitle}>Select Specialization</Text>
+            <ScrollView showsVerticalScrollIndicator={false} style={{ marginBottom: 16 }}>
+              {GUIDE_SPECIALIZATIONS.map((spec) => (
+                <TouchableOpacity
+                  key={spec}
+                  style={[
+                    styles.regionOptionItem,
+                    specialization === spec && styles.regionOptionItemActive
+                  ]}
+                  onPress={() => {
+                    setSpecialization(spec);
+                    setShowSpecModal(false);
+                  }}
+                >
+                  <Text style={[
+                    styles.regionOptionText,
+                    specialization === spec && styles.regionOptionTextActive
+                  ]}>
+                    {spec}
+                  </Text>
+                  {specialization === spec && (
+                    <Ionicons name="checkmark" size={18} color="#1C857C" />
+                  )}
+                </TouchableOpacity>
+              ))}
+            </ScrollView>
+            <TouchableOpacity style={styles.selectionModalCloseBtn} onPress={() => setShowSpecModal(false)}>
+              <Text style={styles.selectionModalCloseBtnText}>Close</Text>
+            </TouchableOpacity>
           </View>
         </View>
       </Modal>
@@ -374,4 +479,39 @@ const styles = StyleSheet.create({
     flex: 1, paddingVertical: 12, borderRadius: 24, backgroundColor: COLORS.brand700, alignItems: 'center',
   },
   modalBtnAddText: { color: COLORS.white, fontWeight: 'bold', fontSize: 13 },
+  regionOptionItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: 14,
+    paddingHorizontal: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: '#F3F4F6',
+  },
+  regionOptionItemActive: {
+    backgroundColor: 'rgba(28, 133, 124, 0.08)',
+  },
+  regionOptionText: {
+    fontSize: 14,
+    color: COLORS.brand950,
+    fontWeight: '500',
+  },
+  regionOptionTextActive: {
+    color: '#1C857C',
+    fontWeight: '700',
+  },
+  selectionModalCloseBtn: {
+    backgroundColor: COLORS.brand700,
+    paddingVertical: 12,
+    borderRadius: 24,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: 8,
+    width: '100%',
+  },
+  selectionModalCloseBtnText: {
+    color: COLORS.white,
+    fontWeight: 'bold',
+    fontSize: 14,
+  },
 });

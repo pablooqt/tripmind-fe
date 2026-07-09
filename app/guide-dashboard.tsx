@@ -10,6 +10,7 @@ import {
   StyleSheet,
   ActivityIndicator,
   ScrollView,
+  Keyboard,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
@@ -57,6 +58,22 @@ export default function GuideDashboardScreen() {
   const [showTrips, setShowTrips] = useState<boolean>(false);
   const [activeProfileScreen, setActiveProfileScreen] = useState<'MAIN' | 'PERSONAL_INFO' | 'PAYOUT' | 'VERIFICATION' | 'NOTIFICATION'>('MAIN');
   const mapRef = useRef<any>(null);
+  const [isKeyboardVisible, setKeyboardVisible] = useState(false);
+
+  useEffect(() => {
+    const showListener = Keyboard.addListener(
+      Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow',
+      () => setKeyboardVisible(true)
+    );
+    const hideListener = Keyboard.addListener(
+      Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide',
+      () => setKeyboardVisible(false)
+    );
+    return () => {
+      showListener.remove();
+      hideListener.remove();
+    };
+  }, []);
 
   // API Data states
   const [dashboardData, setDashboardData] = useState<DashboardData | null>(null);
@@ -282,7 +299,7 @@ export default function GuideDashboardScreen() {
                       <Ionicons name="person-outline" size={14} color={COLORS.gray500} />
                       <Text style={styles.guestNameText}>{trip.users?.name || 'Traveler'}</Text>
                     </View>
-                    <Text style={styles.tripEarnText}>Rp1.000.000</Text>
+                    <Text style={styles.tripEarnText}>Rp{trip.earnings.toLocaleString('id-ID')}</Text>
                   </View>
                 </View>
               ))}
@@ -317,7 +334,7 @@ export default function GuideDashboardScreen() {
       <View style={{ flex: 1 }}>{renderTabContent()}</View>
 
       {/* Floating Bottom Tab Bar Gelap */}
-      {activeProfileScreen === 'MAIN' && (
+      {activeProfileScreen === 'MAIN' && !isKeyboardVisible && (
         <View style={styles.bottomTabWrapper}>
           <View style={styles.bottomTabBar}>
             {/* Home */}

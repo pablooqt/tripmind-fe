@@ -18,7 +18,7 @@ import { useLocalSearchParams, useRouter, Stack } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '@/context/AuthContext';
 import { useChatWebSocket, ChatMessage } from '@/hooks/useChatWebSocket';
-import { getRoomMessages, confirmTripBooking, rejectTripBooking, getUserChatRooms, checkoutTripOrder } from '@/services/api';
+import { getRoomMessages, confirmTripBooking, rejectTripBooking, getUserChatRooms, checkoutTripOrder, getTripDetail } from '@/services/api';
 import { COLORS } from '@/components/home/colors';
 import SafeHeaderWrapper from '@/components/common/SafeHeaderWrapper';
 import { useAlert } from '@/context/AlertContext';
@@ -39,19 +39,33 @@ export default function ChatRoomScreen() {
   const [actionLoading, setActionLoading] = useState(false);
   const [otherPartyName, setOtherPartyName] = useState('Chat Room');
   const [itineraryId, setItineraryId] = useState<number | null>(null);
+  const [tripName, setTripName] = useState<string | null>(null);
 
   useEffect(() => {
-    if (queryName) {
-      setOtherPartyName(queryName as string);
-    } else {
-      getUserChatRooms().then(rooms => {
-        const currentRoom = rooms.find(r => r.room_id === roomId);
-        if (currentRoom?.other_party_name) {
+    getUserChatRooms().then(rooms => {
+      const currentRoom = rooms.find(r => r.room_id === roomId);
+      if (currentRoom) {
+        if (!queryName && currentRoom.other_party_name) {
           setOtherPartyName(currentRoom.other_party_name);
         }
-      }).catch(err => console.log('Gagal memuat nama lawan bicara:', err));
-    }
+        if (currentRoom.itinerary_id) {
+          setItineraryId(Number(currentRoom.itinerary_id));
+        }
+      }
+    }).catch(err => console.log('Gagal memuat detail room:', err));
   }, [roomId, queryName]);
+
+  useEffect(() => {
+    if (itineraryId) {
+      getTripDetail(itineraryId)
+        .then(data => {
+          if (data?.trip_name) {
+            setTripName(data.trip_name);
+          }
+        })
+        .catch(err => console.log('Gagal memuat detail trip untuk chat:', err));
+    }
+  }, [itineraryId]);
 
   const flatListRef = useRef<FlatList>(null);
 
@@ -169,6 +183,19 @@ export default function ChatRoomScreen() {
   // Rendering Action Card Sistem
   const renderActionCard = (msg: ChatMessage) => {
     const meta = msg.content?.metadata || {};
+
+    // Tampilan khusus jika pesan system hanya bertipe 'text' (bukan action card)
+    if (msg.message_type === 'text') {
+      return (
+        <View style={styles.systemNoticeContainer}>
+          <View style={styles.systemNoticeCard}>
+            <Ionicons name="notifications-outline" size={15} color={COLORS.gray500} style={{ marginRight: 8, marginTop: 1 }} />
+            <Text style={styles.systemNoticeText}>{msg.content.text}</Text>
+          </View>
+          <Text style={styles.systemTime}>{formatTime(msg.created_at)}</Text>
+        </View>
+      );
+    }
     
     // Tampilan khusus kartu sukses pembayaran
     if (msg.message_type === 'payment_success_card') {
@@ -329,7 +356,10 @@ export default function ChatRoomScreen() {
               <Text style={styles.headerName}>{otherPartyName}</Text>
               <View style={styles.statusRow}>
                 <View style={[styles.statusDot, connected ? styles.onlineDot : styles.offlineDot]} />
-                <Text style={styles.statusDesc}>{connected ? 'Online' : 'Offline'}</Text>
+                <Text style={styles.statusDesc} numberOfLines={1}>
+                  {connected ? 'Online' : 'Offline'}
+                  {tripName ? ` · Trip: ${tripName}` : ''}
+                </Text>
               </View>
             </View>
           </View>
@@ -685,5 +715,28 @@ const styles = StyleSheet.create({
     color: COLORS.gray400,
     alignSelf: 'center',
     marginTop: 6,
+  },
+  systemNoticeContainer: {
+    paddingHorizontal: 20,
+    marginVertical: 10,
+    alignItems: 'center',
+    width: '100%',
+  },
+  systemNoticeCard: {
+    backgroundColor: '#F3F4F6',
+    borderRadius: 12,
+    paddingVertical: 10,
+    paddingHorizontal: 14,
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    width: '90%',
+  },
+  systemNoticeText: {
+    fontSize: 12,
+    color: '#4B5563',
+    lineHeight: 18,
+    flex: 1,
   },
 });
