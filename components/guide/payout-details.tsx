@@ -1,13 +1,16 @@
 import React, { useState, useEffect } from 'react';
 import {
   View, Text, StyleSheet, TouchableOpacity, SafeAreaView, ScrollView,
-  ActivityIndicator, Modal, TextInput, Alert
+  ActivityIndicator, Modal, TextInput
 } from 'react-native';
+import { useAlert } from '@/context/AlertContext';
 import { Ionicons } from '@expo/vector-icons';
 import { COLORS } from '@/components/home/colors';
 import { getGuidePayoutDetails, updateGuideBankAccount, withdrawGuideEarnings } from '@/services/api';
 
 export default function PayoutDetailsScreen({ onBack }: { onBack: () => void }) {
+  const { showAlert } = useAlert();
+
   const [loading, setLoading] = useState(true);
   const [savingBank, setSavingBank] = useState(false);
   const [withdrawingId, setWithdrawingId] = useState<number | null>(null);
@@ -45,34 +48,30 @@ export default function PayoutDetailsScreen({ onBack }: { onBack: () => void }) 
 
   const handleWithdraw = async (item: any) => {
     if (!hasBankDetails) {
-      Alert.alert(
+      showAlert(
         'Rekening Belum Ada',
         'Silakan tambahkan rekening bank terlebih dahulu sebelum melakukan penarikan.',
-        [{ text: 'OK' }]
+        'info'
       );
       return;
     }
-    Alert.alert(
+    showAlert(
       'Konfirmasi Penarikan',
       `Cairkan ${formatRupiah(item.amount)} dari trip "${item.trip_name}"?\n\nDana akan ditransfer ke rekening ${bankDetails.bank_name} yang terdaftar.`,
-      [
-        { text: 'Batal', style: 'cancel' },
-        {
-          text: 'Cairkan',
-          onPress: async () => {
-            try {
-              setWithdrawingId(item.id_itinerary);
-              await withdrawGuideEarnings(item.id_itinerary);
-              Alert.alert('Berhasil! 🎉', 'Penarikan dana berhasil diproses. Dana akan masuk ke rekening Anda segera.');
-              await fetchPayout(); // refresh all data
-            } catch (e: any) {
-              Alert.alert('Gagal', e?.message || 'Terjadi kesalahan saat mencairkan dana.');
-            } finally {
-              setWithdrawingId(null);
-            }
-          },
-        },
-      ]
+      'confirm',
+      async () => {
+        try {
+          setWithdrawingId(item.id_itinerary);
+          await withdrawGuideEarnings(item.id_itinerary);
+          showAlert('Berhasil! 🎉', 'Penarikan dana berhasil diproses. Dana akan masuk ke rekening Anda segera.', 'success');
+          await fetchPayout(); // refresh all data
+        } catch (e: any) {
+          showAlert('Gagal', e?.message || 'Terjadi kesalahan saat mencairkan dana.', 'error');
+        } finally {
+          setWithdrawingId(null);
+        }
+      },
+      { confirmText: 'Cairkan', cancelText: 'Batal' }
     );
   };
 
@@ -85,7 +84,7 @@ export default function PayoutDetailsScreen({ onBack }: { onBack: () => void }) 
 
   const handleSaveBank = async () => {
     if (!bankName.trim() || !bankAccNumber.trim()) {
-      Alert.alert('Perhatian', 'Nama bank dan nomor rekening wajib diisi.');
+      showAlert('Perhatian', 'Nama bank dan nomor rekening wajib diisi.', 'info');
       return;
     }
     try {
@@ -95,11 +94,11 @@ export default function PayoutDetailsScreen({ onBack }: { onBack: () => void }) 
         bank_account_number: bankAccNumber.trim(),
         bank_account_name: bankAccHolder.trim() || undefined,
       });
-      Alert.alert('Berhasil', 'Data rekening bank berhasil diperbarui.');
+      showAlert('Berhasil', 'Data rekening bank berhasil diperbarui.', 'success');
       setShowManageModal(false);
       await fetchPayout();
     } catch (e: any) {
-      Alert.alert('Gagal', e?.message || 'Terjadi kesalahan saat menyimpan.');
+      showAlert('Gagal', e?.message || 'Terjadi kesalahan saat menyimpan.', 'error');
     } finally {
       setSavingBank(false);
     }

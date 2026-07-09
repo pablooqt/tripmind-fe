@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, SafeAreaView, TouchableOpacity, ScrollView, StyleSheet, ActivityIndicator, Alert, Image } from 'react-native';
+import { View, Text, SafeAreaView, TouchableOpacity, ScrollView, StyleSheet, ActivityIndicator, Image } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import { COLORS } from '@/components/home/colors';
@@ -11,10 +11,12 @@ import NotificationPreferencesScreen from './notification-preferences';
 import LogoutModal from './logout-modal';
 
 import { getAuthUserProfile, deleteAuthAccount } from '@/services/api';
+import { useAlert } from '@/context/AlertContext';
 
 type ScreenState = 'MAIN' | 'PERSONAL_INFO' | 'PAYOUT' | 'VERIFICATION' | 'NOTIFICATION';
 
 export default function GuideProfileScreen({ onNavigate }: { onNavigate: (screen: 'MAIN' | 'PERSONAL_INFO' | 'PAYOUT' | 'VERIFICATION' | 'NOTIFICATION') => void }) {
+  const { showAlert } = useAlert();
   const [showLogoutModal, setShowLogoutModal] = useState(false);
   const [profile, setProfile] = useState<any>(null);
   const [loading, setLoading] = useState(true);
@@ -36,26 +38,21 @@ export default function GuideProfileScreen({ onNavigate }: { onNavigate: (screen
   };
 
   const handleDeleteAccount = () => {
-    Alert.alert(
+    showAlert(
       'Hapus Akun',
       'Apakah kamu yakin ingin menghapus akun ini secara permanen? Seluruh data perjalanan, pendapatan, dan profil akan hilang dan tidak dapat dipulihkan.',
-      [
-        { text: 'Batal', style: 'cancel' },
-        {
-          text: 'Hapus Permanen',
-          style: 'destructive',
-          onPress: async () => {
-            try {
-              await deleteAuthAccount();
-            } catch (_) {
-              // Bahkan jika endpoint gagal, tetap clear local session
-            } finally {
-              (global as any).apiToken = null;
-              router.replace('/login');
-            }
-          },
-        },
-      ]
+      'confirm',
+      async () => {
+        try {
+          await deleteAuthAccount();
+        } catch (_) {
+          // Bahkan jika endpoint gagal, tetap clear local session
+        } finally {
+          (global as any).apiToken = null;
+          router.replace('/login');
+        }
+      },
+      { confirmText: 'Hapus', cancelText: 'Batal' }
     );
   };
 

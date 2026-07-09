@@ -1,12 +1,13 @@
 import React, { useState, useEffect } from 'react';
 import {
   View, Text, StyleSheet, TouchableOpacity, SafeAreaView, ScrollView,
-  TextInput, KeyboardAvoidingView, Platform, ActivityIndicator, Modal, Alert, Image
+  TextInput, KeyboardAvoidingView, Platform, ActivityIndicator, Modal, Image
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
 import { COLORS } from '@/components/home/colors';
 import { getAuthUserProfile, updateAuthUserProfile, updateGuideProfile, uploadAuthPhoto } from '@/services/api';
+import { useAlert } from '@/context/AlertContext';
 
 const BALI_REGIONS = [
   'Badung',
@@ -32,6 +33,7 @@ const GUIDE_SPECIALIZATIONS = [
 ];
 
 export default function PersonalInformationScreen({ onBack }: { onBack: () => void }) {
+  const { showAlert } = useAlert();
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
 
@@ -91,7 +93,7 @@ export default function PersonalInformationScreen({ onBack }: { onBack: () => vo
   const handleChangePhoto = async () => {
     const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
     if (!permission.granted) {
-      Alert.alert('Izin diperlukan', 'Izinkan akses galeri untuk mengganti foto profil.');
+      showAlert('Izin diperlukan', 'Izinkan akses galeri untuk mengganti foto profil.', 'info');
       return;
     }
     const result = await ImagePicker.launchImageLibraryAsync({
@@ -109,7 +111,7 @@ export default function PersonalInformationScreen({ onBack }: { onBack: () => vo
       await uploadAuthPhoto(asset.uri, mimeType, `guide_photo_${Date.now()}.${ext}`);
       setPhotoUri(asset.uri);
     } catch (e: any) {
-      Alert.alert('Gagal', 'Foto tidak berhasil diunggah: ' + (e?.message || ''));
+      showAlert('Gagal', 'Foto tidak berhasil diunggah: ' + (e?.message || ''), 'error');
     } finally {
       setUploadingPhoto(false);
     }
@@ -127,10 +129,10 @@ export default function PersonalInformationScreen({ onBack }: { onBack: () => vo
         duty_area: dutyArea,
         specialization: specialization,
       });
-      Alert.alert('Berhasil', 'Informasi profil berhasil diperbarui.');
+      showAlert('Berhasil', 'Informasi profil berhasil diperbarui.', 'success');
       onBack();
     } catch (e: any) {
-      Alert.alert('Gagal', e?.message || 'Terjadi kesalahan saat menyimpan.');
+      showAlert('Gagal', e?.message || 'Terjadi kesalahan saat menyimpan.', 'error');
     } finally {
       setSaving(false);
     }
