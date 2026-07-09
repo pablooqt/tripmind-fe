@@ -66,8 +66,8 @@ async function apiRequest<T>(endpoint: string, options: RequestInit = {}): Promi
   }
 
   const response = await fetch(url, {
-    headers: { ...headers, ...options.headers },
     ...options,
+    headers: { ...headers, ...options.headers },
   });
   if (!response.ok) {
     const errorBody = await response.json().catch(() => ({}));
@@ -395,6 +395,14 @@ export async function addDestinationToTrip(id_itinerary: number, id_destination:
   });
 }
 
+/** Memperbarui status selesai/dikunjungi untuk satu aktivitas itinerary */
+export async function updateActivityStatus(id_detail_itinerary: number, status: boolean): Promise<any> {
+  return apiRequest<any>('/api/v1/trips/activity/status', {
+    method: 'PATCH',
+    body: JSON.stringify({ id_detail_itinerary, status }),
+  });
+}
+
 /** Mengambil seluruh daftar destinasi wisata di Bali */
 export async function getAllDestinations(): Promise<any[]> {
   const response = await apiRequest<{ status: string; data: any[] }>('/api/v1/destinations');
@@ -407,11 +415,11 @@ export async function getAuthUserProfile(): Promise<any> {
   return response.data;
 }
 
-/** Memperbarui nama profil user */
-export async function updateAuthUserProfile(name: string): Promise<any> {
+/** Memperbarui profil user (nama dan tanggal lahir) */
+export async function updateAuthUserProfile(name: string, birthDate?: string): Promise<any> {
   return apiRequest<any>('/api/v1/auth/profile', {
     method: 'PATCH',
-    body: JSON.stringify({ name }),
+    body: JSON.stringify({ name, birth_date: birthDate }),
   });
 }
 
@@ -427,6 +435,49 @@ export async function changeAuthPassword(password: string): Promise<any> {
 export async function deleteAuthAccount(): Promise<any> {
   return apiRequest<any>('/api/v1/auth/delete', {
     method: 'DELETE',
+  });
+}
+
+// ============================================================
+//  Guide — Profile & Payout
+// ============================================================
+
+/** Memperbarui profil khusus Guide (bio, bahasa, spesialisasi, area tugas, daily rate) */
+export async function updateGuideProfile(payload: {
+  duty_area?: string;
+  specialization?: string;
+  languages_spoken?: string;
+  daily_rate?: number;
+  bio?: string;
+}): Promise<any> {
+  return apiRequest<any>('/api/v1/auth-guides/profile', {
+    method: 'PATCH',
+    body: JSON.stringify(payload),
+  });
+}
+
+/** Mengambil saldo, detail rekening, dan riwayat penarikan Guide */
+export async function getGuidePayoutDetails(): Promise<any> {
+  const response = await apiRequest<{ status: string; data: any }>('/api/v1/guides/payout');
+  return response.data;
+}
+
+/** Memperbarui data rekening bank Guide */
+export async function updateGuideBankAccount(payload: {
+  bank_name: string;
+  bank_account_number: string;
+  bank_account_name?: string;
+}): Promise<any> {
+  return apiRequest<any>('/api/v1/guides/bank-account', {
+    method: 'PATCH',
+    body: JSON.stringify(payload),
+  });
+}
+
+/** Mencairkan pendapatan Guide untuk itinerary tertentu */
+export async function withdrawGuideEarnings(id_itinerary: number): Promise<any> {
+  return apiRequest<any>(`/api/v1/trips/${id_itinerary}/withdraw`, {
+    method: 'POST',
   });
 }
 
@@ -456,6 +507,33 @@ export async function uploadAuthPhoto(fileUri: string, mimeType: string, fileNam
     throw new Error(errorBody?.detail ?? `HTTP Error ${response.status}`);
   }
   return response.json();
+}
+
+/** Memulai pemulihan kata sandi (mengirim OTP ke email) */
+export async function forgotAuthPassword(email: string): Promise<any> {
+  return apiRequest<any>('/api/v1/auth/forgot-password', {
+    method: 'POST',
+    body: JSON.stringify({ email }),
+  });
+}
+
+/** Memverifikasi OTP pemulihan kata sandi */
+export async function verifyResetPassword(email: string, token: string): Promise<any> {
+  return apiRequest<any>('/api/v1/auth/verify-reset-password', {
+    method: 'POST',
+    body: JSON.stringify({ email, token }),
+  });
+}
+
+/** Mereset password menggunakan session token sementara */
+export async function resetPasswordWithToken(password: string, sessionToken: string): Promise<any> {
+  return apiRequest<any>('/api/v1/auth/reset-password', {
+    method: 'POST',
+    headers: {
+      'Authorization': `Bearer ${sessionToken}`,
+    },
+    body: JSON.stringify({ password }),
+  });
 }
 
 

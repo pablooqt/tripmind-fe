@@ -32,13 +32,23 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [token, setToken] = useState<string | null>(null);
   const [userRole, setUserRole] = useState<'user' | 'guide' | null>(null);
   const [profile, setProfile] = useState<UserProfile | null>(null);
-  const [userLocation, setUserLocation] = useState<{ latitude: number; longitude: number } | null>(null);
+  const [userLocation, setUserLocationState] = useState<{ latitude: number; longitude: number } | null>(null);
   const [isLoading, setIsLoading] = useState<boolean>(true); // Mulai dengan loading true untuk cek token awal
 
   // 1. Memulihkan Sesi Lama Secara Otomatis pada Startup Aplikasi
   useEffect(() => {
     const restoreSession = async () => {
       try {
+        // Pulihkan lokasi ter-cache
+        const savedLocation = await AsyncStorage.getItem('userLocation');
+        if (savedLocation) {
+          try {
+            setUserLocationState(JSON.parse(savedLocation));
+          } catch (e) {
+            console.warn('[AuthContext] Gagal parsing lokasi ter-cache:', e);
+          }
+        }
+
         const savedToken = await AsyncStorage.getItem('userToken');
         if (savedToken) {
           // Set token global sementara untuk request fetch berikutnya
@@ -74,6 +84,19 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
     restoreSession();
   }, []);
+
+  const setUserLocation = async (location: { latitude: number; longitude: number } | null) => {
+    setUserLocationState(location);
+    try {
+      if (location) {
+        await AsyncStorage.setItem('userLocation', JSON.stringify(location));
+      } else {
+        await AsyncStorage.removeItem('userLocation');
+      }
+    } catch (err) {
+      console.warn('[AuthContext] Gagal menyimpan lokasi ke storage:', err);
+    }
+  };
 
   // Update helper API token global saat token state berubah
   useEffect(() => {
