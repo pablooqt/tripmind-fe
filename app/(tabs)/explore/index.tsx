@@ -98,7 +98,7 @@ export default function ExploreScreen() {
   // State untuk RefreshControl
   const [refreshing, setRefreshing] = useState(false);
 
-  // ── Saring Destinasi berdasarkan Tab ──────────────────────────────────
+  // ── Saring Destinasi berdasarkan Tab 
   const filteredDestinations = destinations.filter((dest) => {
     const isRest = isRestaurant(dest);
     return tab === 'restaurant' ? isRest : !isRest;

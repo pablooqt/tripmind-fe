@@ -191,15 +191,14 @@ export default function LoginScreen() {
           const params = new URLSearchParams(fragment);
           const accessToken = params.get('access_token');
           if (accessToken) {
-            // Tarik profil user dari backend /me menggunakan token
-            const profileRes = await fetch(`${BASE_URL}/api/v1/auth/me`, {
+            const currentRole = role || 'traveler';
+            const profileRes = await fetch(`${BASE_URL}/api/v1/auth/me?requested_role=${currentRole === 'guide' ? 'guide' : 'user'}`, {
               headers: { 'Authorization': `Bearer ${accessToken}` }
             });
             const profileBody = await profileRes.json();
             
             if (profileRes.ok && profileBody.status === 'success') {
               const profileData = profileBody.data;
-              const currentRole = role || 'traveler';
 
               // Simpan sesi global
               saveGoogleSession(accessToken, { ...profileData, role: currentRole === 'guide' ? 'guide' : 'user' });

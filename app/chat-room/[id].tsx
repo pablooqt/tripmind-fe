@@ -168,8 +168,11 @@ export default function ChatRoomScreen() {
   const formatTime = (isoString: string) => {
     try {
       let formattedStr = isoString;
-      if (isoString && !isoString.endsWith('Z') && !isoString.includes('+') && !isoString.match(/-\d{2}:\d{2}$/)) {
-        formattedStr = isoString + 'Z';
+      if (isoString) {
+        const hasTimezone = /Z|[+-]\d{2}:?\d{2}$/.test(isoString);
+        if (!hasTimezone) {
+          formattedStr = isoString + 'Z';
+        }
       }
       const date = new Date(formattedStr);
       const hours = String(date.getHours()).padStart(2, '0');

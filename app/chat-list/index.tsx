@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useCallback } from 'react';
 import {
   View,
   Text,
@@ -8,8 +8,9 @@ import {
   ActivityIndicator,
   SafeAreaView,
 } from 'react-native';
-import { useRouter, Stack } from 'expo-router';
+import { useRouter, Stack, useFocusEffect } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { getUserChatRooms } from '@/services/api';
 import { useAuth } from '@/context/AuthContext';
 import { COLORS } from '@/components/home/colors';
@@ -34,49 +35,122 @@ interface ChatListScreenProps {
   showBack?: boolean;
 }
 
+const STORAGE_KEY = '@chat_last_read';
+
 export default function ChatListScreen({ showBack = true }: ChatListScreenProps) {
   const router = useRouter();
-  const { isAuthenticated } = useAuth();
+  const { isAuthenticated, profile } = useAuth();
   const [chatRooms, setChatRooms] = useState<ChatRoom[]>([]);
+  const [lastReadRooms, setLastReadRooms] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(true);
 
-  const fetchRooms = async () => {
+  const fetchRoomsAndReadState = async (showLoading = false) => {
     try {
-      setLoading(true);
-      const data = await getUserChatRooms();
-      setChatRooms(data);
+      if (showLoading) setLoading(true);
+      
+      const [roomsData, savedReadState] = await Promise.all([
+        getUserChatRooms(),
+        AsyncStorage.getItem(STORAGE_KEY),
+      ]);
+
+      setChatRooms(roomsData || []);
+      if (savedReadState) {
+        setLastReadRooms(JSON.parse(savedReadState));
+      }
     } catch (e) {
       console.warn('[ChatList] Gagal memuat daftar chat:', e);
     } finally {
-      setLoading(false);
+      if (showLoading) setLoading(false);
     }
   };
 
-  useEffect(() => {
-    if (isAuthenticated) {
-      fetchRooms();
-    }
-  }, [isAuthenticated]);
+  // Gunakan useFocusEffect untuk pooling realtime saat layar sedang aktif/fokus
+  useFocusEffect(
+    useCallback(() => {
+      if (!isAuthenticated) return;
+
+      // Muat data awal dengan spinner loading
+      fetchRoomsAndReadState(true);
+
+      // Jalankan polling ringan setiap 3 detik tanpa spinner loading agar smooth
+      const interval = setInterval(() => {
+        fetchRoomsAndReadState(false);
+      }, 3000);
+
+      return () => {
+        clearInterval(interval);
+      };
+    }, [isAuthenticated])
+  );
 
   const formatLastMsgTime = (timestamp?: string) => {
     if (!timestamp) return '';
     try {
-      const date = new Date(timestamp);
+      // Cek apakah timestamp memiliki penanda timezone (Z atau offset di akhir string)
+      let cleanTimestamp = timestamp;
+      const hasTimezone = /Z|[+-]\d{2}:?\d{2}$/.test(timestamp);
+      if (!hasTimezone) {
+        cleanTimestamp = timestamp + 'Z';
+      }
+      const date = new Date(cleanTimestamp);
+      
+      const now = new Date();
+      const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+      const yesterday = new Date(today.getTime() - 24 * 60 * 60 * 1000);
+      const targetDate = new Date(date.getFullYear(), date.getMonth(), date.getDate());
+
       let hours = date.getHours();
       const minutes = String(date.getMinutes()).padStart(2, '0');
       const ampm = hours >= 12 ? 'PM' : 'AM';
       hours = hours % 12;
       hours = hours ? hours : 12; // Jam '0' diset ke '12'
-      return `${hours}:${minutes} ${ampm}`;
+      const timeStr = `${hours}:${minutes} ${ampm}`;
+
+      if (targetDate.getTime() === today.getTime()) {
+        return timeStr;
+      } else if (targetDate.getTime() === yesterday.getTime()) {
+        return 'Yesterday';
+      } else {
+        const day = String(date.getDate()).padStart(2, '0');
+        const month = String(date.getMonth() + 1).padStart(2, '0');
+        const year = date.getFullYear();
+        return `${day}/${month}/${year}, ${timeStr}`;
+      }
     } catch {
       return '';
     }
+  };
+
+  const handleOpenRoom = async (room: ChatRoom) => {
+    try {
+      const nowStr = new Date().toISOString();
+      const updatedReadRooms = {
+        ...lastReadRooms,
+        [room.room_id]: nowStr,
+      };
+      setLastReadRooms(updatedReadRooms);
+      await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(updatedReadRooms));
+    } catch (e) {
+      console.warn('[ChatList] Gagal mengupdate status read:', e);
+    }
+
+    router.push({
+      pathname: '/chat-room/[id]',
+      params: { id: room.room_id, name: room.other_party_name },
+    } as any);
   };
 
   const renderItem = ({ item }: { item: ChatRoom }) => {
     const lastMsgText = item.last_message ? item.last_message.message : 'No messages yet';
     const lastMsgTime = item.last_message ? formatLastMsgTime(item.last_message.timestamp) : '';
     const initialLetter = item.other_party_name ? item.other_party_name.charAt(0).toUpperCase() : '?';
+
+    // Cek apakah ada chat baru masuk (bukan dikirim oleh kita dan timestamp chat > kunjungan terakhir kita)
+    const lastReadTime = lastReadRooms[item.room_id];
+    const isUnread =
+      item.last_message &&
+      item.last_message.sender_id !== profile?.id &&
+      (!lastReadTime || new Date(item.last_message.timestamp).getTime() > new Date(lastReadTime).getTime());
 
     // Pilihan warna pastel premium untuk inisial nama
     const colors = ['#E0F2FE', '#F0FDF4', '#FEF3C7', '#FCE7F3', '#E8F5E9', '#FFF3E0'];
@@ -87,14 +161,9 @@ export default function ChatListScreen({ showBack = true }: ChatListScreenProps)
 
     return (
       <TouchableOpacity
-        style={styles.chatItem}
+        style={[styles.chatItem, isUnread && styles.chatItemUnread]}
         activeOpacity={0.8}
-        onPress={() => {
-          router.push({
-            pathname: '/chat-room/[id]',
-            params: { id: item.room_id, name: item.other_party_name },
-          } as any);
-        }}
+        onPress={() => handleOpenRoom(item)}
       >
         <View style={[styles.avatar, { backgroundColor: avatarBg }]}>
           <Text style={[styles.avatarText, { color: avatarText }]}>{initialLetter}</Text>
@@ -105,15 +174,29 @@ export default function ChatListScreen({ showBack = true }: ChatListScreenProps)
             <Text style={styles.otherPartyName} numberOfLines={1}>
               {item.other_party_name}
             </Text>
-            <Text style={styles.msgTime}>{lastMsgTime}</Text>
+            <Text style={[styles.msgTime, isUnread && styles.msgTimeUnread]}>{lastMsgTime}</Text>
           </View>
-          <Text style={styles.lastMsg} numberOfLines={1}>
-            {lastMsgText}
-          </Text>
+          <View style={styles.lastMsgRow}>
+            <Text style={[styles.lastMsg, isUnread && styles.lastMsgUnread]} numberOfLines={1}>
+              {lastMsgText}
+            </Text>
+            {isUnread && <View style={styles.unreadDot} />}
+          </View>
         </View>
       </TouchableOpacity>
     );
   };
+
+  // Urutkan secara dinamis di frontend agar chat terbaru selalu berada di paling atas
+  const sortedChatRooms = [...chatRooms].sort((a, b) => {
+    const timeA = a.last_message
+      ? new Date(a.last_message.timestamp).getTime()
+      : new Date(a.updated_at || a.created_at).getTime();
+    const timeB = b.last_message
+      ? new Date(b.last_message.timestamp).getTime()
+      : new Date(b.updated_at || b.created_at).getTime();
+    return timeB - timeA;
+  });
 
   return (
     <SafeAreaView style={styles.container}>
@@ -137,7 +220,7 @@ export default function ChatListScreen({ showBack = true }: ChatListScreenProps)
         <View style={styles.center}>
           <ActivityIndicator size="large" color="#1C857C" />
         </View>
-      ) : chatRooms.length === 0 ? (
+      ) : sortedChatRooms.length === 0 ? (
         <View style={styles.center}>
           <Ionicons name="chatbubbles-outline" size={48} color={COLORS.gray400} />
           <Text style={styles.emptyTitle}>No messages yet</Text>
@@ -147,7 +230,7 @@ export default function ChatListScreen({ showBack = true }: ChatListScreenProps)
         </View>
       ) : (
         <FlatList
-          data={chatRooms}
+          data={sortedChatRooms}
           keyExtractor={(item) => item.room_id}
           renderItem={renderItem}
           contentContainerStyle={styles.listContent}
@@ -171,9 +254,6 @@ const styles = StyleSheet.create({
     height: 48,
   },
   backBtn: {
-    padding: 6,
-  },
-  menuBtn: {
     padding: 6,
   },
   headerTitle: {
@@ -220,6 +300,10 @@ const styles = StyleSheet.create({
     shadowRadius: 4,
     elevation: 1,
   },
+  chatItemUnread: {
+    borderColor: '#D1FAE5',
+    backgroundColor: '#F0FDF4', // Background hijau pastel premium untuk chat belum dibaca
+  },
   avatar: {
     width: 48,
     height: 48,
@@ -253,8 +337,29 @@ const styles = StyleSheet.create({
     color: COLORS.gray400,
     fontWeight: '600',
   },
+  msgTimeUnread: {
+    color: '#10B981', // Hijau untuk stempel waktu belum dibaca
+    fontWeight: '700',
+  },
+  lastMsgRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
   lastMsg: {
     fontSize: 12.5,
     color: COLORS.gray500,
+    flex: 1,
+    marginRight: 8,
+  },
+  lastMsgUnread: {
+    color: '#092A29',
+    fontWeight: '700', // Teks tebal untuk pesan yang belum dibaca
+  },
+  unreadDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: '#10B981', // Dot hijau premium
   },
 });
