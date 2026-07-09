@@ -19,6 +19,7 @@ import ToastNotification from '@/components/common/ToastNotification';
 import {
   DestinationCard,
   getDestinationDetail,
+  getSimilarDestinations,
   getFirstPhotoUrl,
   addFavorite,
   removeFavorite,
@@ -76,34 +77,6 @@ function getQuickTip(category: string, name: string): string {
   return 'Arrive early to avoid crowds, bring cash for entrance fees, and keep hydrated!';
 }
 
-// Rekomendasi kuliner lokal sekitar tempat wisata
-function getNearbyBites(regency: string) {
-  const reg = (regency || 'Bali').toLowerCase();
-  if (reg.includes('gianyar') || reg.includes('ubud')) {
-    return [
-      { id: 'b1', name: 'Zest Ubud', image: 'https://images.unsplash.com/photo-1540189549336-e6e99c3679fe?w=400' },
-      { id: 'b2', name: 'Milk & Madu Ubud', image: 'https://images.unsplash.com/photo-1555396273-367ea4eb4db5?w=400' },
-      { id: 'b3', name: 'Clear Cafe', image: 'https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?w=400' },
-    ];
-  }
-  if (
-    reg.includes('badung') ||
-    reg.includes('kuta') ||
-    reg.includes('canggu') ||
-    reg.includes('seminyak')
-  ) {
-    return [
-      { id: 'b1', name: 'Nalu Bowls Canggu', image: 'https://images.unsplash.com/photo-1540189549336-e6e99c3679fe?w=400' },
-      { id: 'b2', name: 'La Lucciola Seminyak', image: 'https://images.unsplash.com/photo-1555396273-367ea4eb4db5?w=400' },
-      { id: 'b3', name: 'The Lawn Canggu', image: 'https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?w=400' },
-    ];
-  }
-  return [
-    { id: 'b1', name: 'Local Warung Bali', image: 'https://images.unsplash.com/photo-1540189549336-e6e99c3679fe?w=400' },
-    { id: 'b2', name: 'Nasi Campur Ibu Bali', image: 'https://images.unsplash.com/photo-1555396273-367ea4eb4db5?w=400' },
-    { id: 'b3', name: 'Beachside Resto', image: 'https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?w=400' },
-  ];
-}
 
 const formatTag = (tag: string): string => {
   if (!tag) return '';
@@ -124,35 +97,43 @@ export default function DestinationDetailScreen() {
   const [isFavorite, setIsFavorite] = useState(false);
   const [isTogglingFav, setIsTogglingFav] = useState(false); // Loading di tombol FAB
   const [galleryIndex, setGalleryIndex] = useState(0);
+  const [similarDestinations, setSimilarDestinations] = useState<DestinationCard[]>([]);
+  const [loadingSimilar, setLoadingSimilar] = useState(false);
 
   // States untuk ToastNotification popup
   const [toastVisible, setToastVisible] = useState(false);
   const [toastMessage, setToastMessage] = useState('');
   const [toastType, setToastType] = useState<'success' | 'error' | 'info'>('success');
 
-  // Load detail destinasi & periksa status favoritnya dari database jika login
+  // Fetch detail destinasi + data favorite user saat id berubah
   useEffect(() => {
     if (!id) return;
+    const numId = Number(id);
+    setLoading(true);
+    setSimilarDestinations([]);
 
-    const loadData = async () => {
-      setLoading(true);
-      try {
-        const destData = await getDestinationDetail(Number(id));
-        setDestination(destData);
-
-        if (isAuthenticated) {
-          const favs = await getUserFavorites();
-          const alreadyFav = favs.some((fav) => fav.id_destination === Number(id));
-          setIsFavorite(alreadyFav);
+    Promise.all([
+      getDestinationDetail(numId),
+      isAuthenticated ? getUserFavorites() : Promise.resolve([]),
+    ])
+      .then(([detail, favs]) => {
+        setDestination(detail);
+        if (isAuthenticated && Array.isArray(favs)) {
+          setIsFavorite(favs.some((f: any) => f.id === numId || f.id_destination === numId));
         }
-      } catch (err) {
-        console.warn(`[Detail] Gagal memuat detail destinasi id ${id}:`, err);
-      } finally {
+        // Fetch similar setelah destinasi berhasil dimuat
+        setLoadingSimilar(true);
+        getSimilarDestinations({ target_destination_id: numId, limit: 8 })
+          .then(setSimilarDestinations)
+          .catch((err) => console.warn('[Detail] Gagal fetch similar destinations:', err))
+          .finally(() => setLoadingSimilar(false));
+      })
+      .catch((err) => {
+        console.warn('[Detail] Gagal memuat destinasi:', err);
+      })
+      .finally(() => {
         setLoading(false);
-      }
-    };
-
-    loadData();
+      });
   }, [id, isAuthenticated]);
 
   // Handler toggle favorite dengan ActivityIndicator & popup ToastNotification
@@ -250,7 +231,7 @@ export default function DestinationDetailScreen() {
     );
   }
 
-  const bites = getNearbyBites(destination.regency || '');
+  const bites = getSimilarDestinations; // removed: replaced by similarDestinations state
 
   // Format harga tiket masuk asli
   const priceStr =
@@ -370,21 +351,34 @@ export default function DestinationDetailScreen() {
           </View>
         </View>
 
-        {/* 5. Nearby Bites Section */}
+        {/* 5. Similar Destinations Section */}
         <View style={styles.bitesSection}>
-          <Text style={styles.bitesTitle}>Nearby Bites</Text>
-          <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.bitesScroll}>
-            {bites.map((bite) => (
-              <View key={bite.id} style={styles.biteCard}>
-                <Image source={{ uri: bite.image }} style={styles.biteImage} />
-                <View style={styles.biteInfo}>
-                  <Text style={styles.biteName} numberOfLines={1}>
-                    {bite.name}
-                  </Text>
-                </View>
-              </View>
-            ))}
-          </ScrollView>
+          <Text style={styles.bitesTitle}>Similar Destinations</Text>
+          {loadingSimilar ? (
+            <ActivityIndicator size="small" color="#196660" style={{ marginLeft: 20 }} />
+          ) : similarDestinations.length > 0 ? (
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.bitesScroll}>
+              {similarDestinations.map((dest) => (
+                <TouchableOpacity
+                  key={dest.id}
+                  style={styles.biteCard}
+                  activeOpacity={0.85}
+                  onPress={() => router.push({ pathname: '/destination/[id]', params: { id: dest.id } })}
+                >
+                  <SafeImage
+                    source={{ uri: getFirstPhotoUrl(dest.photo_urls) }}
+                    defaultSource={require('@/assets/images/misty_mountains.png')}
+                    style={styles.biteImage}
+                  />
+                  <View style={styles.biteInfo}>
+                    <Text style={styles.biteName} numberOfLines={1}>
+                      {dest.place_name}
+                    </Text>
+                  </View>
+                </TouchableOpacity>
+              ))}
+            </ScrollView>
+          ) : null}
         </View>
 
         {/* Powered by Google Centered Footer */}
@@ -665,6 +659,7 @@ const styles = StyleSheet.create({
   },
   bitesScroll: {
     paddingLeft: 20,
+    paddingVertical: 10
   },
   biteCard: {
     width: 120,

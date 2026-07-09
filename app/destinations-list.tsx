@@ -18,6 +18,7 @@ import {
   getDestinations,
   getRecommendationsFromProfile,
   getRecommendationsByPreference,
+  getSimilarDestinations,
   getFirstPhotoUrl,
 } from '@/services/api';
 import { COLORS } from '@/components/home/colors';
@@ -47,7 +48,7 @@ const formatTag = (tag: string): string => {
 export default function DestinationsListScreen() {
   const router = useRouter();
   const { isLoading: authLoading, isAuthenticated } = useAuth();
-  const { type, title } = useLocalSearchParams<{ type: 'preferences' | 'top'; title: string }>();
+  const { type, title, seedId } = useLocalSearchParams<{ type: 'preferences' | 'top' | 'similar'; title: string; seedId?: string }>();
   
   const [destinations, setDestinations] = useState<DestinationCard[]>([]);
   const [loading, setLoading] = useState(true);
@@ -88,6 +89,16 @@ export default function DestinationsListScreen() {
           }
         })
         .finally(() => setLoading(false));
+    } else if (type === 'similar') {
+      const id = seedId ? parseInt(seedId, 10) : NaN;
+      if (!isNaN(id)) {
+        getSimilarDestinations({ target_destination_id: id, limit: 30 })
+          .then(setDestinations)
+          .catch((err) => console.warn('[DestinationsList] Gagal memuat similar destinations:', err))
+          .finally(() => setLoading(false));
+      } else {
+        setLoading(false);
+      }
     } else {
       getDestinations({ limit: 30 })
         .then(setDestinations)

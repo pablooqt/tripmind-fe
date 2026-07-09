@@ -63,7 +63,7 @@ export default function PayoutDetailsScreen({ onBack }: { onBack: () => void }) 
         try {
           setWithdrawingId(item.id_itinerary);
           await withdrawGuideEarnings(item.id_itinerary);
-          showAlert('Berhasil! 🎉', 'Penarikan dana berhasil diproses. Dana akan masuk ke rekening Anda segera.', 'success');
+          showAlert('Berhasil!', 'Penarikan dana berhasil diproses. Dana akan masuk ke rekening Anda segera.', 'success');
           await fetchPayout(); // refresh all data
         } catch (e: any) {
           showAlert('Gagal', e?.message || 'Terjadi kesalahan saat mencairkan dana.', 'error');
