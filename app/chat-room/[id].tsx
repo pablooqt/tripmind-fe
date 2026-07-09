@@ -21,10 +21,12 @@ import { useChatWebSocket, ChatMessage } from '@/hooks/useChatWebSocket';
 import { getRoomMessages, confirmTripBooking, rejectTripBooking, getUserChatRooms, checkoutTripOrder } from '@/services/api';
 import { COLORS } from '@/components/home/colors';
 import SafeHeaderWrapper from '@/components/common/SafeHeaderWrapper';
+import { useAlert } from '@/context/AlertContext';
 
 export default function ChatRoomScreen() {
   const { id: roomId, name: queryName } = useLocalSearchParams();
   const router = useRouter();
+  const { showAlert } = useAlert();
   const { token, profile } = useAuth();
   
   const { messages, setMessages, connected, sendMessage } = useChatWebSocket(
@@ -105,10 +107,10 @@ export default function ChatRoomScreen() {
     try {
       setActionLoading(true);
       await confirmTripBooking(tripId);
-      alert('You have successfully confirmed the booking request!');
+      showAlert('Success', 'You have successfully confirmed the booking request!', 'success');
       loadMessageHistory(); // Tarik ulang riwayat pesan untuk menyegarkan status kartu aksi
     } catch (e: any) {
-      alert(e.message || 'Failed to confirm booking.');
+      showAlert('Error', e.message || 'Failed to confirm booking.', 'error');
     } finally {
       setActionLoading(false);
     }
@@ -119,10 +121,10 @@ export default function ChatRoomScreen() {
     try {
       setActionLoading(true);
       await rejectTripBooking(tripId);
-      alert('You have rejected the booking request.');
+      showAlert('Success', 'You have rejected the booking request.', 'success');
       loadMessageHistory();
     } catch (e: any) {
-      alert(e.message || 'Failed to reject booking.');
+      showAlert('Error', e.message || 'Failed to reject booking.', 'error');
     } finally {
       setActionLoading(false);
     }
@@ -135,14 +137,15 @@ export default function ChatRoomScreen() {
       const orderData = await checkoutTripOrder(tripId);
       const redirectUrl = orderData?.redirect_url;
       if (redirectUrl) {
-        alert('Opening Midtrans Sandbox payment...');
-        Linking.openURL(redirectUrl);
+        showAlert('Checkout Sandbox', 'Opening Midtrans Sandbox payment...', 'info', () => {
+          Linking.openURL(redirectUrl);
+        });
       } else {
-        alert('Failed to obtain payment URL from Midtrans.');
+        showAlert('Error', 'Failed to obtain payment URL from Midtrans.', 'error');
       }
     } catch (e: any) {
       console.warn('[ChatRoom] Gagal checkout:', e);
-      alert(e.message || 'Payment checkout failed.');
+      showAlert('Error', e.message || 'Payment checkout failed.', 'error');
     } finally {
       setActionLoading(false);
     }
@@ -166,7 +169,34 @@ export default function ChatRoomScreen() {
   // Rendering Action Card Sistem
   const renderActionCard = (msg: ChatMessage) => {
     const meta = msg.content?.metadata || {};
-    const statusVal  = meta.status || 'pending';
+    
+    // Tampilan khusus kartu sukses pembayaran
+    if (msg.message_type === 'payment_success_card') {
+      return (
+        <View style={styles.actionCardContainer}>
+          <View style={[styles.actionCard, { borderColor: '#10B981', backgroundColor: '#F0FDF4' }]}>
+            <View style={styles.actionCardHeader}>
+              <Ionicons name="checkmark-circle" size={18} color="#10B981" />
+              <Text style={[styles.actionCardTitle, { color: '#047857' }]}>Payment Verified</Text>
+            </View>
+            
+            <Text style={styles.actionCardText}>{msg.content.text}</Text>
+            {meta.transaction_id && (
+              <Text style={[styles.actionCardInfo, { marginBottom: 0 }]}>
+                Transaction ID: {meta.transaction_id}
+              </Text>
+            )}
+          </View>
+          <Text style={styles.systemTime}>{formatTime(msg.created_at)}</Text>
+        </View>
+      );
+    }
+
+    // Normalisasi status 'active' (berhasil lunas dari callback BE) menjadi 'confirmed'
+    let statusVal = meta.status || 'pending';
+    if (statusVal === 'active') {
+      statusVal = 'confirmed';
+    }
     const tripId = Number(meta.trip_id);
 
     return (
@@ -277,8 +307,8 @@ export default function ChatRoomScreen() {
     );
   };
 
-  const actionCardMsg = messages.find(m => m.sender_role === 'system' && m.content?.metadata?.action_card);
-  const chatMessagesList = messages.filter(m => !(m.sender_role === 'system' && m.content?.metadata?.action_card));
+  const actionCardMsg = messages.find(m => m.sender_role === 'system' && (m.message_type === 'action_card' || m.content?.metadata?.action_card));
+  const chatMessagesList = messages.filter(m => !(m.sender_role === 'system' && (m.message_type === 'action_card' || m.content?.metadata?.action_card)));
 
   return (
     <SafeAreaView style={styles.container}>

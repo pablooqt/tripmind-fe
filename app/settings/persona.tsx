@@ -5,7 +5,6 @@ import {
   StyleSheet,
   TouchableOpacity,
   ActivityIndicator,
-  Alert,
   ScrollView,
   SafeAreaView,
 } from 'react-native';
@@ -13,6 +12,7 @@ import { useRouter, Stack } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { COLORS } from '@/components/home/colors';
 import SafeHeaderWrapper from '@/components/common/SafeHeaderWrapper';
+import { useAlert } from '@/context/AlertContext';
 import { getUserProfileAndPreferences, submitTravelerProfiling } from '@/services/api';
 
 // Map antara ID database dengan Label/Ikon Mockup
@@ -23,10 +23,10 @@ interface StyleOption {
 }
 
 const TRAVEL_STYLES: StyleOption[] = [
-  { dbValue: 'The Adrenaline Junkie', label: 'Adventure', icon: 'mountain-outline' },
-  { dbValue: 'The Social Butterfly', label: 'Culinary', icon: 'restaurant-outline' },
-  { dbValue: 'The Culture Geek', label: 'Culture', icon: 'library-outline' },
-  { dbValue: 'The Zen Seeker', label: 'Relaxing', icon: 'leaf-outline' },
+  { dbValue: 'The Adrenaline Junkie', label: 'The Adrenaline Junkie', icon: 'mountain-outline' },
+  { dbValue: 'The Social Butterfly', label: 'The Social Butterfly', icon: 'people-outline' },
+  { dbValue: 'The Culture Geek', label: 'The Culture Geek', icon: 'library-outline' },
+  { dbValue: 'The Zen Seeker', label: 'The Zen Seeker', icon: 'leaf-outline' },
 ];
 
 interface InterestOption {
@@ -35,16 +35,18 @@ interface InterestOption {
 }
 
 const INTERESTS: InterestOption[] = [
-  { dbValue: 'Photography Spots', label: 'Photography' },
-  { dbValue: 'Nature & Trekking', label: 'Hiking' },
-  { dbValue: 'Cultural & Heritage', label: 'History' },
-  { dbValue: 'Local Tastes', label: 'Local Food' },
-  { dbValue: 'Beach & Sunset', label: 'Shopping' },
-  { dbValue: 'Wellness & Yoga', label: 'Nightlife' },
+  { dbValue: 'Beach & Sunset', label: 'Beach & Sunset' },
+  { dbValue: 'Cultural & Heritage', label: 'Cultural & Heritage' },
+  { dbValue: 'Hidden Gems', label: 'Hidden Gems' },
+  { dbValue: 'Wellness & Yoga', label: 'Wellness & Yoga' },
+  { dbValue: 'Nature & Trekking', label: 'Nature & Trekking' },
+  { dbValue: 'Local Tastes', label: 'Local Tastes' },
+  { dbValue: 'Photography Spots', label: 'Photography Spots' },
 ];
 
 export default function YourPersonaScreen() {
   const router = useRouter();
+  const { showAlert } = useAlert();
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
 
@@ -93,7 +95,7 @@ export default function YourPersonaScreen() {
 
   const handleSavePreferences = async () => {
     if (!selectedPersona) {
-      Alert.alert('Error', 'Please select at least one travel style.');
+      showAlert('Error', 'Please select at least one travel style.', 'error');
       return;
     }
 
@@ -117,11 +119,9 @@ export default function YourPersonaScreen() {
         preferences: payloadPreferences
       });
 
-      Alert.alert('Success', 'Preferences updated successfully! Your AI recommendations will adapt immediately.', [
-        { text: 'OK', onPress: () => router.back() }
-      ]);
+      showAlert('Success', 'Preferences updated successfully! Your AI recommendations will adapt immediately.', 'success', () => router.back());
     } catch (e: any) {
-      Alert.alert('Error', e.message || 'Failed to save preferences.');
+      showAlert('Error', e.message || 'Failed to save preferences.', 'error');
     } finally {
       setSaving(false);
     }
@@ -284,9 +284,11 @@ const styles = StyleSheet.create({
     backgroundColor: '#F3FAF9',
   },
   styleCardText: {
-    fontSize: 13,
+    fontSize: 11.5,
     fontWeight: '700',
     color: COLORS.gray500,
+    textAlign: 'center',
+    paddingHorizontal: 8,
   },
   styleCardTextActive: {
     color: '#196660',

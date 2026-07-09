@@ -7,7 +7,6 @@ import {
   TextInput,
   Image,
   ActivityIndicator,
-  Alert,
   KeyboardAvoidingView,
   Platform,
   ScrollView,
@@ -21,6 +20,8 @@ import { COLORS } from '@/components/home/colors';
 import SafeHeaderWrapper from '@/components/common/SafeHeaderWrapper';
 import { getAuthUserProfile, updateAuthUserProfile, uploadAuthPhoto } from '@/services/api';
 import * as ImagePicker from 'expo-image-picker';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { useAlert } from '@/context/AlertContext';
 
 const PRESET_AVATARS = [
   'https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=150',
@@ -33,6 +34,7 @@ const PRESET_AVATARS = [
 
 export default function EditProfileScreen() {
   const router = useRouter();
+  const { showAlert } = useAlert();
   const [profile, setProfile] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -40,8 +42,7 @@ export default function EditProfileScreen() {
   // Form states
   const [fullName, setFullName] = useState('');
   const [emailAddress, setEmailAddress] = useState('');
-  const [phoneNumber, setPhoneNumber] = useState('+62 812 3456 789');
-  const [bio, setBio] = useState('Buat apa hidup kalo blm imo');
+  const [birthDate, setBirthDate] = useState('');
   const [photoUrl, setPhotoUrl] = useState<string | null>(null);
 
   const [showPhotoModal, setShowPhotoModal] = useState(false);
@@ -54,6 +55,7 @@ export default function EditProfileScreen() {
       
       setFullName(data.name || '');
       setEmailAddress(data.email || '');
+      setBirthDate(data.birth_date || '');
       setPhotoUrl(data.photo_url || null);
     } catch (e) {
       console.warn('[EditProfile] Gagal memuat profil:', e);
@@ -68,18 +70,22 @@ export default function EditProfileScreen() {
 
   const handleSave = async () => {
     if (!fullName.trim()) {
-      Alert.alert('Error', 'Full Name cannot be empty.');
+      showAlert('Error', 'Full Name cannot be empty.', 'error');
+      return;
+    }
+
+    if (birthDate.trim() && !/^\d{4}-\d{2}-\d{2}$/.test(birthDate.trim())) {
+      showAlert('Error', 'Date of Birth must be in YYYY-MM-DD format (e.g. 2000-01-01).', 'error');
       return;
     }
 
     try {
       setSaving(true);
-      await updateAuthUserProfile(fullName.trim());
-      Alert.alert('Success', 'Profile updated successfully!', [
-        { text: 'OK', onPress: () => router.back() }
-      ]);
+      await updateAuthUserProfile(fullName.trim(), birthDate.trim() || undefined);
+
+      showAlert('Success', 'Profile updated successfully!', 'success', () => router.back());
     } catch (e: any) {
-      Alert.alert('Error', e.message || 'Failed to update profile.');
+      showAlert('Error', e.message || 'Failed to update profile.', 'error');
     } finally {
       setSaving(false);
     }
@@ -102,10 +108,10 @@ export default function EditProfileScreen() {
       } else {
         setPhotoUrl(uri);
       }
-      Alert.alert('Success', 'Profile picture updated successfully!');
+      showAlert('Success', 'Profile picture updated successfully!', 'success');
       fetchProfile(); // Segarkan data profil dari server
     } catch (e: any) {
-      Alert.alert('Error', e.message || 'Failed to upload photo.');
+      showAlert('Error', e.message || 'Failed to upload photo.', 'error');
     } finally {
       setSaving(false);
     }
@@ -114,7 +120,7 @@ export default function EditProfileScreen() {
   const pickImageFromGallery = async () => {
     const permissionResult = await ImagePicker.requestMediaLibraryPermissionsAsync();
     if (!permissionResult.granted) {
-      Alert.alert('Permission Denied', 'Permission to access gallery is required.');
+      showAlert('Permission Denied', 'Permission to access gallery is required.', 'error');
       return;
     }
 
@@ -134,7 +140,7 @@ export default function EditProfileScreen() {
   const takePhotoWithCamera = async () => {
     const permissionResult = await ImagePicker.requestCameraPermissionsAsync();
     if (!permissionResult.granted) {
-      Alert.alert('Permission Denied', 'Permission to access camera is required.');
+      showAlert('Permission Denied', 'Permission to access camera is required.', 'error');
       return;
     }
 
@@ -158,9 +164,9 @@ export default function EditProfileScreen() {
       // Di database users, kita update photo_url via basic update jika API upload hanya untuk file
       // Supaya konsisten, kita set di DB / state lokal
       setPhotoUrl(url);
-      Alert.alert('Success', 'Preset avatar selected!');
+      showAlert('Success', 'Preset avatar selected!', 'success');
     } catch (e: any) {
-      Alert.alert('Error', 'Failed to select preset.');
+      showAlert('Error', 'Failed to select preset.', 'error');
     } finally {
       setSaving(false);
     }
@@ -257,37 +263,19 @@ export default function EditProfileScreen() {
               </View>
             </View>
 
-            {/* Phone Number */}
+            {/* Date of Birth */}
             <View style={styles.inputGroup}>
-              <Text style={styles.label}>Phone Number</Text>
+              <Text style={styles.label}>Date of Birth (YYYY-MM-DD)</Text>
               <View style={styles.inputContainer}>
-                <Ionicons name="call-outline" size={20} color={COLORS.gray400} style={styles.inputIcon} />
+                <Ionicons name="calendar-outline" size={20} color={COLORS.gray400} style={styles.inputIcon} />
                 <TextInput
                   style={styles.input}
-                  value={phoneNumber}
-                  onChangeText={setPhoneNumber}
-                  placeholder="Enter your phone number"
+                  value={birthDate}
+                  onChangeText={setBirthDate}
+                  placeholder="YYYY-MM-DD (e.g. 2000-01-01)"
                   placeholderTextColor={COLORS.gray400}
-                  keyboardType="phone-pad"
                 />
               </View>
-            </View>
-
-            {/* Bio */}
-            <View style={styles.inputGroup}>
-              <Text style={styles.label}>Bio</Text>
-              <View style={[styles.inputContainer, styles.textAreaContainer]}>
-                <TextInput
-                  style={[styles.input, styles.textArea]}
-                  value={bio}
-                  onChangeText={(text) => setBio(text.slice(0, 200))}
-                  placeholder="Tell us about yourself"
-                  placeholderTextColor={COLORS.gray400}
-                  multiline
-                  numberOfLines={4}
-                />
-              </View>
-              <Text style={styles.charCounter}>{bio.length}/200</Text>
             </View>
           </View>
         </ScrollView>

@@ -15,13 +15,16 @@ import { Ionicons } from '@expo/vector-icons';
 import * as WebBrowser from 'expo-web-browser';
 import * as Linking from 'expo-linking';
 import OtpModal from '@/components/traveler/otp-modal';
+import ResetPasswordModal from '@/components/traveler/ResetPasswordModal';
 import { useAuth } from '@/context/AuthContext';
-import { BASE_URL } from '@/services/api';
+import { BASE_URL, forgotAuthPassword, verifyResetPassword, resetPasswordWithToken } from '@/services/api';
+import { useAlert } from '@/context/AlertContext';
 
 WebBrowser.maybeCompleteAuthSession();
 
 export default function LoginScreen() {
   const router = useRouter();
+  const { showAlert } = useAlert();
   const { login, register, verifyOtp, saveGoogleSession, isLoading } = useAuth();
 
   // Status Alur Autentikasi
@@ -39,6 +42,11 @@ export default function LoginScreen() {
   // Status Modal OTP
   const [showOtp, setShowOtp] = useState<boolean>(false);
 
+  // Status Password Recovery
+  const [isRecoveryFlow, setIsRecoveryFlow] = useState<boolean>(false);
+  const [showResetPasswordModal, setShowResetPasswordModal] = useState<boolean>(false);
+  const [recoverySessionToken, setRecoverySessionToken] = useState<string>('');
+
   const selectRole = (selectedRole: 'guide' | 'traveler') => {
     setRole(selectedRole);
     setStep('auth');
@@ -46,7 +54,7 @@ export default function LoginScreen() {
 
   const handleSubmit = async () => {
     if (!email.trim() || !password.trim()) {
-      alert('Harap isi alamat email dan password Anda.');
+      showAlert('Email & Password Required', 'Harap isi alamat email dan password Anda.', 'info');
       return;
     }
 
@@ -54,7 +62,7 @@ export default function LoginScreen() {
 
     if (isSignUp) {
       if (password !== confirmPassword) {
-        alert('Konfirmasi password tidak cocok.');
+        showAlert('Password Mismatch', 'Konfirmasi password tidak cocok.', 'error');
         return;
       }
       
@@ -65,7 +73,7 @@ export default function LoginScreen() {
       if (res.success) {
         setShowOtp(true);
       } else {
-        alert(res.error ?? 'Registrasi gagal.');
+        showAlert('Registration Failed', res.error ?? 'Registrasi gagal.', 'error');
       }
     } else {
       // Proses Login
@@ -82,13 +90,30 @@ export default function LoginScreen() {
           setShowOtp(true);
         }
       } else {
-        alert(res.error ?? 'Gagal masuk. Periksa kembali email dan sandi Anda.');
+        showAlert('Login Failed', res.error ?? 'Gagal masuk. Periksa kembali email dan sandi Anda.', 'error');
       }
     }
   };
 
   const handleVerifyOtp = async (code: string) => {
     const currentRole = role || 'traveler';
+
+    if (isRecoveryFlow) {
+      try {
+        const res = await verifyResetPassword(email, code);
+        if (res.status === 'success' && res.data?.access_token) {
+          setRecoverySessionToken(res.data.access_token);
+          setShowOtp(false);
+          setShowResetPasswordModal(true);
+        } else {
+          showAlert('Verification Failed', 'Gagal memverifikasi kode OTP pemulihan.', 'error');
+        }
+      } catch (e: any) {
+        showAlert('Verification Failed', e.message || 'Kode keamanan salah atau kedaluwarsa.', 'error');
+      }
+      return;
+    }
+
     const res = await verifyOtp(
       email,
       code,
@@ -104,17 +129,62 @@ export default function LoginScreen() {
         router.replace('/profiling');
       }
     } else {
-      alert(res.error ?? 'Kode keamanan salah atau kedaluwarsa.');
+      showAlert('Verification Failed', res.error ?? 'Kode keamanan salah atau kedaluwarsa.', 'error');
+    }
+  };
+
+  const handleForgotPassword = async () => {
+    if (!email.trim()) {
+      showAlert('Email Required', 'Harap isi kolom Mail Address terlebih dahulu untuk pemulihan kata sandi.', 'info');
+      return;
+    }
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(email.trim())) {
+      showAlert('Invalid Email', 'Format email tidak valid. Harap periksa kembali.', 'error');
+      return;
+    }
+
+    try {
+      const res = await forgotAuthPassword(email.trim());
+      if (res.status === 'success') {
+        setIsRecoveryFlow(true);
+        showAlert('OTP Sent', 'Kode keamanan untuk pemulihan kata sandi telah dikirim ke email Anda.', 'success', () => {
+          setShowOtp(true);
+        });
+      } else {
+        showAlert('Request Failed', res.message || 'Gagal mengirim instruksi pemulihan.', 'error');
+      }
+    } catch (e: any) {
+      showAlert('Error', e.message || 'Terjadi kesalahan saat memproses permintaan.', 'error');
+    }
+  };
+
+  const handleResetPasswordSubmit = async (newPass: string) => {
+    try {
+      const res = await resetPasswordWithToken(newPass, recoverySessionToken);
+      if (res.status === 'success') {
+        setShowResetPasswordModal(false);
+        setIsRecoveryFlow(false);
+        setRecoverySessionToken('');
+        showAlert('Password Reset Success', 'Kata sandi Anda berhasil diperbarui! Silakan masuk menggunakan kata sandi baru Anda.', 'success');
+      } else {
+        showAlert('Reset Failed', res.message || 'Gagal mereset kata sandi.', 'error');
+      }
+    } catch (e: any) {
+      showAlert('Error', e.message || 'Gagal memperbarui kata sandi.', 'error');
+      throw e;
     }
   };
 
   const handleGoogleLogin = async () => {
     try {
       const redirectUri = Linking.createURL('login');
+      console.log('🔗 REDIRECT URI:', redirectUri);  
       const authUrl = `https://noxdtjknzizhssbxibqh.supabase.co/auth/v1/authorize?provider=google&redirect_to=${encodeURIComponent(redirectUri)}`;
       
       const result = await WebBrowser.openAuthSessionAsync(authUrl, redirectUri);
-      
+      console.log('📦 AUTH RESULT:', JSON.stringify(result));
+
       if (result.type === 'success' && result.url) {
         const fragment = result.url.split('#')[1];
         if (fragment) {
@@ -151,7 +221,7 @@ export default function LoginScreen() {
         }
       }
     } catch (err: any) {
-      alert(`Google Sign-In: ${err.message}`);
+      showAlert('Google Sign-In Error', err.message || 'Failed to authenticate with Google.', 'error');
     }
   };
 
@@ -317,7 +387,11 @@ export default function LoginScreen() {
 
                 {/* Tautan Forgot Password (Hanya muncul jika Log In) */}
                 {!isSignUp && (
-                  <TouchableOpacity style={{ alignSelf: 'flex-end', marginTop: 4, marginBottom: 24 }}>
+                  <TouchableOpacity 
+                    style={{ alignSelf: 'flex-end', marginTop: 4, marginBottom: 24 }}
+                    onPress={handleForgotPassword}
+                    activeOpacity={0.7}
+                  >
                     <Text className="text-sm font-semibold text-brand-600">
                       Forgot Password?
                     </Text>
@@ -349,15 +423,6 @@ export default function LoginScreen() {
 
                 {/* TOMBOL SOSIAL MEDIA MOCKUP & GOOGLE REAL */}
                 <View className="flex-row" style={{ gap: 16 }}>
-                  {/* Facebook Button Mockup */}
-                  <TouchableOpacity
-                    activeOpacity={0.8}
-                    className="flex-1 flex-row items-center justify-center border border-border-stroke py-3 rounded-xl bg-white"
-                  >
-                    <Ionicons name="logo-facebook" size={20} color="#1877F2" />
-                    <Text className="text-brand-950 font-semibold text-sm ml-2">Facebook</Text>
-                  </TouchableOpacity>
-
                   {/* Google Button Real */}
                   <TouchableOpacity
                     onPress={handleGoogleLogin}
@@ -379,6 +444,12 @@ export default function LoginScreen() {
         onClose={() => setShowOtp(false)}
         onVerify={handleVerifyOtp}
         email={email}
+      />
+
+      <ResetPasswordModal
+        visible={showResetPasswordModal}
+        onClose={() => setShowResetPasswordModal(false)}
+        onSubmit={handleResetPasswordSubmit}
       />
     </ImageBackground>
   );

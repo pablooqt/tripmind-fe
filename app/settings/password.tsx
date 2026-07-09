@@ -7,7 +7,6 @@ import {
   TextInput,
   Image,
   ActivityIndicator,
-  Alert,
   KeyboardAvoidingView,
   Platform,
   ScrollView,
@@ -18,9 +17,11 @@ import { Ionicons } from '@expo/vector-icons';
 import { COLORS } from '@/components/home/colors';
 import SafeHeaderWrapper from '@/components/common/SafeHeaderWrapper';
 import { getAuthUserProfile, changeAuthPassword } from '@/services/api';
+import { useAlert } from '@/context/AlertContext';
 
 export default function ChangePasswordScreen() {
   const router = useRouter();
+  const { showAlert } = useAlert();
   const [profile, setProfile] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -51,26 +52,24 @@ export default function ChangePasswordScreen() {
 
   const handleSaveChanges = async () => {
     if (!newPassword) {
-      Alert.alert('Error', 'Please enter a new password.');
+      showAlert('Error', 'Please enter a new password.', 'error');
       return;
     }
     if (newPassword.length < 6) {
-      Alert.alert('Error', 'Password must be at least 6 characters long.');
+      showAlert('Error', 'Password must be at least 6 characters long.', 'error');
       return;
     }
     if (newPassword !== confirmPassword) {
-      Alert.alert('Error', 'Passwords do not match. Please verify.');
+      showAlert('Error', 'Passwords do not match. Please verify.', 'error');
       return;
     }
 
     try {
       setSaving(true);
       await changeAuthPassword(newPassword);
-      Alert.alert('Success', 'Password updated successfully! Please log in again with your new credentials.', [
-        { text: 'OK', onPress: () => router.back() }
-      ]);
+      showAlert('Success', 'Password updated successfully! Please log in again with your new credentials.', 'success', () => router.back());
     } catch (e: any) {
-      Alert.alert('Error', e.message || 'Failed to update password.');
+      showAlert('Error', e.message || 'Failed to update password.', 'error');
     } finally {
       setSaving(false);
     }

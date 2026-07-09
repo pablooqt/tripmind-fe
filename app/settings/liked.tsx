@@ -8,11 +8,11 @@ import {
   Image,
   ActivityIndicator,
   SafeAreaView,
-  Alert,
 } from 'react-native';
 import { useRouter, Stack } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { COLORS } from '@/components/home/colors';
+import { useAlert } from '@/context/AlertContext';
 import SafeHeaderWrapper from '@/components/common/SafeHeaderWrapper';
 import { getUserFavorites, removeFavorite, getFirstPhotoUrl } from '@/services/api';
 
@@ -32,6 +32,7 @@ interface FavoriteItem {
 
 export default function LikedDestinationsScreen() {
   const router = useRouter();
+  const { showAlert } = useAlert();
   const [favorites, setFavorites] = useState<FavoriteItem[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -52,25 +53,20 @@ export default function LikedDestinationsScreen() {
   }, []);
 
   const handleRemoveFav = async (destId: number, name: string) => {
-    Alert.alert(
+    showAlert(
       'Remove Favorite',
       `Are you sure you want to remove "${name}" from your favorite list?`,
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Remove',
-          style: 'destructive',
-          onPress: async () => {
-            try {
-              await removeFavorite(destId);
-              // Filter out local state immediately for instant feedback
-              setFavorites((prev) => prev.filter((item) => item.id_destination !== destId));
-            } catch (e: any) {
-              Alert.alert('Error', e.message || 'Failed to remove from favorites.');
-            }
-          },
-        },
-      ]
+      'confirm',
+      async () => {
+        try {
+          await removeFavorite(destId);
+          // Filter out local state immediately for instant feedback
+          setFavorites((prev) => prev.filter((item) => item.id_destination !== destId));
+        } catch (e: any) {
+          showAlert('Error', e.message || 'Failed to remove from favorites.', 'error');
+        }
+      },
+      { confirmText: 'Remove', cancelText: 'Cancel' }
     );
   };
 

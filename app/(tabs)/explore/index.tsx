@@ -3,6 +3,7 @@ import { View, Text, TouchableOpacity, StyleSheet, ActivityIndicator, Modal, Scr
 import * as Haptics from 'expo-haptics';
 import { Ionicons } from '@expo/vector-icons';
 import Animated, { useSharedValue, useAnimatedStyle, interpolate, Extrapolation } from 'react-native-reanimated';
+import * as Location from 'expo-location';
 import { useAuth } from '@/context/AuthContext';
 import ToastNotification from '@/components/common/ToastNotification';
 
@@ -73,7 +74,7 @@ export default function ExploreScreen() {
   const [destinations, setDests]  = useState<DestinationCard[]>([]);
   const [index, setIndex]         = useState(0);
   const [loading, setLoading]     = useState(true);
-  const { isAuthenticated }       = useAuth();
+  const { isAuthenticated, setUserLocation } = useAuth();
 
 
   const x = useSharedValue(0);
@@ -112,6 +113,7 @@ export default function ExploreScreen() {
     })
       .then((data) => {
         setDests(data);
+        seedRestaurantsIfEmpty(data);
         setIndex(0);
         setIsExplorationMode(false);
         setSkipCount(0);
@@ -128,13 +130,118 @@ export default function ExploreScreen() {
       .finally(() => setRefreshing(false));
   }, []);
 
+  const seedRestaurantsIfEmpty = async (currentDests: DestinationCard[]) => {
+    const hasRestaurants = currentDests.some(isRestaurant);
+    if (hasRestaurants) return;
+
+    console.log('[Explore] No restaurants found in database. Seeding real Balinese restaurants...');
+    const SUPABASE_URL = "https://noxdtjknzizhssbxibqh.supabase.co";
+    const serviceKey = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im5veGR0amtueml6aHNzYnhpYnFoIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc3OTYyMDc1MCwiZXhwIjoyMDk1MTk2NzUwfQ._je-lp0AtXQS_5mBMwn3Akyhzn5CQL0mAmH_ANbnWwg";
+
+    const restaurantsToSeed = [
+      {
+        place_name: "Warung Bu Mi",
+        category: "restaurant",
+        description: "A popular local warung in Ubud serving delicious, authentic Balinese mixed rice (Nasi Campur) with a wide variety of traditional side dishes.",
+        latitude: -8.51347,
+        longitude: 115.2625,
+        photo_urls: ["https://images.unsplash.com/photo-1596797038530-2c107229654b?w=800"],
+        tags: ["local_food", "culinary", "warung", "local tastes"],
+        price: 25000,
+        rating: 4.5,
+        opening_hours: "Monday - Sunday: 08:00 - 22:00",
+        regency: "Gianyar"
+      },
+      {
+        place_name: "Naughty Nuri's Seminyak",
+        category: "restaurant",
+        description: "Famous for its legendary, mouth-watering BBQ pork ribs and signature martinis, serving a lively and energetic dining experience.",
+        latitude: -8.6791,
+        longitude: 115.1585,
+        photo_urls: ["https://images.unsplash.com/photo-1544025162-d76694265947?w=800"],
+        tags: ["culinary", "restaurant", "food", "bbq", "local tastes"],
+        price: 150000,
+        rating: 4.6,
+        opening_hours: "Monday - Sunday: 11:00 - 22:00",
+        regency: "Badung"
+      },
+      {
+        place_name: "Bebek Bengil Ubud",
+        category: "restaurant",
+        description: "The pioneer of Balinese crispy duck dining, offering delicious traditional meals set in a beautiful garden environment next to rice paddies.",
+        latitude: -8.5126,
+        longitude: 115.2662,
+        photo_urls: ["https://images.unsplash.com/photo-1615485290382-441e4d049cb5?w=800"],
+        tags: ["culinary", "restaurant", "food", "traditional", "local tastes"],
+        price: 125000,
+        rating: 4.4,
+        opening_hours: "Monday - Sunday: 10:00 - 22:00",
+        regency: "Gianyar"
+      },
+      {
+        place_name: "Potato Head Beach Club",
+        category: "restaurant",
+        description: "A world-renowned beach club featuring premium oceanfront dining, creative cocktails, and international culinary options.",
+        latitude: -8.6795,
+        longitude: 115.1378,
+        photo_urls: ["https://images.unsplash.com/photo-1578474846511-04ba529f0b88?w=800"],
+        tags: ["culinary", "beach_club", "food", "dining", "bar"],
+        price: 200000,
+        rating: 4.7,
+        opening_hours: "Monday - Sunday: 09:00 - 00:00",
+        regency: "Badung"
+      },
+      {
+        place_name: "Locavore Ubud",
+        category: "restaurant",
+        description: "An award-winning fine dining restaurant in Ubud serving unique, modern dishes crafted exclusively from local, sustainably sourced ingredients.",
+        latitude: -8.5065,
+        longitude: 115.2622,
+        photo_urls: ["https://images.unsplash.com/photo-1414235077428-338989a2e8c0?w=800"],
+        tags: ["culinary", "restaurant", "fine_dining", "local tastes"],
+        price: 350000,
+        rating: 4.8,
+        opening_hours: "Tuesday - Saturday: 12:00 - 15:00, 18:00 - 22:00",
+        regency: "Gianyar"
+      }
+    ];
+
+    try {
+      const response = await fetch(`${SUPABASE_URL}/rest/v1/destinations`, {
+        method: 'POST',
+        headers: {
+          'apikey': serviceKey,
+          'Authorization': `Bearer ${serviceKey}`,
+          'Content-Type': 'application/json',
+          'Prefer': 'return=representation'
+        },
+        body: JSON.stringify(restaurantsToSeed)
+      });
+
+      if (response.ok) {
+        console.log('[Explore] Successfully seeded restaurants into Supabase!');
+        // Refresh data setelah berhasil seed
+        const freshData = await getRecommendationsFromProfile({ mode: 'exploration', limit: 20 });
+        setDests(freshData);
+      } else {
+        const errText = await response.text();
+        console.warn('[Explore] Gagal melakukan seeder restoran:', errText);
+      }
+    } catch (err) {
+      console.warn('[Explore] Error seeder restoran:', err);
+    }
+  };
+
   // ── Fetch rekomendasi destinasi ─────────────────────────────────────────
   useEffect(() => {
     getRecommendationsFromProfile({
       mode: 'exploration',
       limit: 20,
     })
-      .then(setDests)
+      .then((data) => {
+        setDests(data);
+        seedRestaurantsIfEmpty(data);
+      })
       .catch((e) => {
         console.warn('[Explore] Gagal mengambil profil rekomendasi, mencoba fallback:', e);
         getRecommendationsByPreference({
@@ -143,7 +250,10 @@ export default function ExploreScreen() {
           mode: 'exploration',
           limit: 20,
         })
-          .then(setDests)
+          .then((data) => {
+            setDests(data);
+            seedRestaurantsIfEmpty(data);
+          })
           .catch((fallbackErr) => console.warn('[Explore] Fallback gagal:', fallbackErr));
       })
       .finally(() => setLoading(false));
@@ -183,6 +293,29 @@ export default function ExploreScreen() {
     }
   }, [isAuthenticated]);
 
+  // ── Fetch & Perbarui Lokasi Riil GPS ─────────────────────────────────────
+  useEffect(() => {
+    const fetchCurrentGpsLocation = async () => {
+      try {
+        const { status } = await Location.requestForegroundPermissionsAsync();
+        if (status === 'granted') {
+          const currentLoc = await Location.getCurrentPositionAsync({
+            accuracy: Location.Accuracy.Balanced,
+          });
+          setUserLocation({
+            latitude: currentLoc.coords.latitude,
+            longitude: currentLoc.coords.longitude
+          });
+          console.log('[Explore] Updated GPS location dynamically:', currentLoc.coords);
+        }
+      } catch (err) {
+        console.warn('[Explore] Gagal mengambil lokasi perangkat:', err);
+      }
+    };
+
+    fetchCurrentGpsLocation();
+  }, []);
+ 
   // ── Actions ────────────────────────────────────────────────────────────
   const advance = useCallback(() => {
     setIndex((prev) => Math.min(prev + 1, filteredDestinations.length));

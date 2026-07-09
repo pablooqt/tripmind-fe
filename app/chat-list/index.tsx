@@ -34,7 +34,7 @@ interface ChatListScreenProps {
   showBack?: boolean;
 }
 
-export default function ChatListScreen({ showBack = false }: ChatListScreenProps) {
+export default function ChatListScreen({ showBack = true }: ChatListScreenProps) {
   const router = useRouter();
   const { isAuthenticated } = useAuth();
   const [chatRooms, setChatRooms] = useState<ChatRoom[]>([]);
@@ -120,13 +120,16 @@ export default function ChatListScreen({ showBack = false }: ChatListScreenProps
       <Stack.Screen options={{ headerShown: false }} />
       <SafeHeaderWrapper>
         <View style={styles.header}>
-          <TouchableOpacity style={styles.backBtn} onPress={() => router.back()}>
-            <Ionicons name="arrow-back" size={24} color={COLORS.brand950} />
-          </TouchableOpacity>
-          <Text style={styles.headerTitle}>Messages</Text>
-          <TouchableOpacity style={styles.menuBtn}>
-            <Ionicons name="ellipsis-vertical" size={20} color={COLORS.brand950} />
-          </TouchableOpacity>
+          {showBack ? (
+            <>
+              <TouchableOpacity style={styles.backBtn} onPress={() => router.back()}>
+                <Ionicons name="arrow-back" size={24} color={COLORS.brand950} />
+              </TouchableOpacity>
+              <Text style={styles.headerTitle}>Messages</Text>
+            </>
+          ) : (
+            <Text style={styles.headerTitle}>Messages</Text>
+          )}
         </View>
       </SafeHeaderWrapper>
 

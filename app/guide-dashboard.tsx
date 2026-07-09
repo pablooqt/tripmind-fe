@@ -129,7 +129,7 @@ export default function GuideDashboardScreen() {
       case 'Tours':
         return <GuideToursScreen />;
       case 'Chat':
-        return <ChatListScreen />;
+        return <ChatListScreen showBack={false} />;
       case 'Settings':
         return <GuideProfileScreen onNavigate={(screen) => setActiveProfileScreen(screen)} />;
       default:

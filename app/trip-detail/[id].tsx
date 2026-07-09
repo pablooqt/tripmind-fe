@@ -15,9 +15,10 @@ import {
 } from 'react-native';
 import { useLocalSearchParams, useRouter, Stack } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
-import { getTripDetail, addDestinationToTrip, getAllDestinations } from '@/services/api';
+import { getTripDetail, addDestinationToTrip, getAllDestinations, updateActivityStatus } from '@/services/api';
 import { COLORS } from '@/components/home/colors';
 import SafeHeaderWrapper from '@/components/common/SafeHeaderWrapper';
+import { useAlert } from '@/context/AlertContext';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
@@ -80,6 +81,7 @@ interface TripDetail {
 export default function TripDetailScreen() {
   const { id } = useLocalSearchParams();
   const router = useRouter();
+  const { showAlert } = useAlert();
   const tripId = Number(id);
 
   const [activeTab, setActiveTab] = useState<'Overview' | 'Scheduler'>('Overview');
@@ -95,6 +97,67 @@ export default function TripDetailScreen() {
 
   // States untuk Scheduler Day selection
   const [activeDay, setActiveDay] = useState(1);
+  const [completedActivityIds, setCompletedActivityIds] = useState<number[]>([]);
+
+  // Sinkronkan status aktivitas dari data database yang ditarik dari server
+  useEffect(() => {
+    if (trip && trip.activities) {
+      const completed = trip.activities
+        .filter((act: any) => act.status === true)
+        .map((act: any) => act.id);
+      setCompletedActivityIds(completed);
+    }
+  }, [trip]);
+
+  const handleToggleActivityDone = async (activityId: number) => {
+    const isDone = completedActivityIds.includes(activityId);
+    const newStatus = !isDone;
+
+    // Update state secara optimis
+    let newCompleted = [...completedActivityIds];
+    if (isDone) {
+      newCompleted = newCompleted.filter((id) => id !== activityId);
+    } else {
+      newCompleted.push(activityId);
+
+      // Cari tahu apakah ada destinasi berikutnya untuk hari aktif ini
+      const currentIndex = currentDayActivities.findIndex((a: any) => a.id === activityId);
+      if (currentIndex !== -1 && currentIndex < currentDayActivities.length - 1) {
+        const nextAct = currentDayActivities[currentIndex + 1];
+        const nextDestName = nextAct.destinations.place_name;
+        showAlert(
+          'Destination Completed!',
+          `Moving to the next destination: ${nextDestName}`,
+          'success'
+        );
+      } else {
+        showAlert(
+          'Day Completed!',
+          'Awesome! You have visited all scheduled destinations for Day ' + activeDay + '!',
+          'success'
+        );
+      }
+    }
+
+    setCompletedActivityIds(newCompleted);
+
+    try {
+      // Panggil API backend untuk memperbarui status aktivitas
+      await updateActivityStatus(activityId, newStatus);
+      // Segarkan data detail trip untuk sinkronisasi penuh dengan database
+      const data = await getTripDetail(tripId);
+      setTrip(data);
+    } catch (err: any) {
+      console.warn('[TripDetail] Gagal memperbarui status aktivitas di server:', err);
+      showAlert('Error', 'Gagal memperbarui status di server: ' + (err.message || ''), 'error');
+      // Rollback jika terjadi kesalahan koneksi/API
+      if (isDone) {
+        setCompletedActivityIds([...completedActivityIds, activityId]);
+      } else {
+        setCompletedActivityIds(completedActivityIds.filter((id) => id !== activityId));
+      }
+    }
+  };
 
   const fetchDetail = async () => {
     try {
@@ -137,10 +200,10 @@ export default function TripDetailScreen() {
       setLoading(true);
       setShowAddModal(false);
       await addDestinationToTrip(tripId, destId, selectedDayToAdd.toString());
-      alert('Successfully added destination to your trip scheduler!');
+      showAlert('Success', 'Successfully added destination to your trip scheduler!', 'success');
       fetchDetail(); // Segarkan data detail trip
     } catch (e: any) {
-      alert(e.message || 'Failed to add destination.');
+      showAlert('Error', e.message || 'Failed to add destination.', 'error');
       setLoading(false);
     }
   };
@@ -257,7 +320,7 @@ export default function TripDetailScreen() {
                   params: { id: trip.room_id },
                 } as any);
               } else {
-                alert('No active chat room initiated for this trip yet.');
+                showAlert('Chat Unavailable', 'No active chat room initiated for this trip yet.', 'info');
               }
             }}
           >
@@ -425,6 +488,43 @@ export default function TripDetailScreen() {
               </TouchableOpacity>
             </View>
 
+            {/* Dynamic Progress Header */}
+            {(() => {
+              if (currentDayActivities.length === 0) return null;
+              
+              const firstIncomplete = currentDayActivities.find(a => !completedActivityIds.includes(a.id));
+              
+              return (
+                <View style={styles.progressHeaderCard}>
+                  <View style={styles.progressIconContainer}>
+                    <Ionicons 
+                      name={firstIncomplete ? "flag-outline" : "checkmark-done-circle"} 
+                      size={20} 
+                      color="#196660" 
+                    />
+                  </View>
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.progressLabel}>
+                      {firstIncomplete ? "Current Destination" : "All Done!"}
+                    </Text>
+                    <Text style={styles.progressValue} numberOfLines={1}>
+                      {firstIncomplete ? firstIncomplete.destinations.place_name : "You've visited all spots today!"}
+                    </Text>
+                  </View>
+                  {firstIncomplete && (
+                    <TouchableOpacity
+                      style={styles.nextDestDoneBtn}
+                      activeOpacity={0.8}
+                      onPress={() => handleToggleActivityDone(firstIncomplete.id)}
+                    >
+                      <Text style={styles.nextDestDoneBtnText}>Complete</Text>
+                      <Ionicons name="arrow-forward" size={14} color="#FFFFFF" />
+                    </TouchableOpacity>
+                  )}
+                </View>
+              );
+            })()}
+
             {currentDayActivities.length === 0 ? (
               <View style={styles.emptyTimeline}>
                 <Text style={styles.emptyTimelineText}>No activities scheduled for Day {activeDay}.</Text>
@@ -436,6 +536,7 @@ export default function TripDetailScreen() {
                   const destPhoto = dest.photo_urls && dest.photo_urls.length > 0
                     ? dest.photo_urls[0]
                     : 'https://images.unsplash.com/photo-1537996194471-e657df975ab4?w=500';
+                  const isActivityDone = completedActivityIds.includes(act.id);
 
                   return (
                     <View key={act.id} style={styles.timelineItem}>
@@ -443,17 +544,51 @@ export default function TripDetailScreen() {
                       <View style={styles.timelineLeftColumn}>
                         <Text style={styles.timelineTimeText}>{act.start_time ? act.start_time.substring(0, 5) : `${9 + act.visit_order}:00`}</Text>
                         <View style={styles.timelineVerticalLineContainer}>
-                          <View style={styles.timelineDot} />
+                          <View style={[
+                            styles.timelineDot,
+                            isActivityDone && { borderColor: '#A3ECDE', backgroundColor: '#196660' }
+                          ]} />
                           {index < currentDayActivities.length - 1 && <View style={styles.timelineLine} />}
                         </View>
                       </View>
 
                       {/* Right: Destination Card */}
                       <View style={styles.timelineRightColumn}>
-                        <View style={styles.activityCard}>
+                        <View style={[
+                          styles.activityCard,
+                          isActivityDone && { opacity: 0.65 }
+                        ]}>
                           <Image source={{ uri: destPhoto }} style={styles.activityCardImage} />
+                          
+                          {/* Floating Done Button at Top Right */}
+                          <TouchableOpacity
+                            style={[
+                              styles.floatingDoneBtn,
+                              isActivityDone ? styles.floatingDoneBtnActive : styles.floatingDoneBtnInactive
+                            ]}
+                            activeOpacity={0.8}
+                            onPress={() => handleToggleActivityDone(act.id)}
+                          >
+                            <Ionicons
+                              name={isActivityDone ? 'checkmark-circle' : 'checkmark-circle-outline'}
+                              size={14}
+                              color={isActivityDone ? '#196660' : '#FFFFFF'}
+                            />
+                            <Text style={[
+                              styles.floatingDoneBtnText,
+                              isActivityDone ? styles.floatingDoneBtnTextActive : styles.floatingDoneBtnTextInactive
+                            ]}>
+                              {isActivityDone ? 'Visited' : 'Mark Visited'}
+                            </Text>
+                          </TouchableOpacity>
+
                           <View style={styles.activityCardOverlay}>
-                            <Text style={styles.activityCardName} numberOfLines={1}>{dest.place_name}</Text>
+                            <Text style={[
+                              styles.activityCardName,
+                              isActivityDone && { textDecorationLine: 'line-through', opacity: 0.8 }
+                            ]} numberOfLines={1}>
+                              {dest.place_name}
+                            </Text>
                             <View style={styles.activityRatingRow}>
                               <Text style={styles.activityCardRating}>{dest.rating || 4.5}</Text>
                               <Ionicons name="star" size={11} color="#FFB800" style={{ marginLeft: 3 }} />
@@ -1093,5 +1228,87 @@ const styles = StyleSheet.create({
   },
   modalDayBadgeTextActive: {
     color: COLORS.white,
+  },
+  progressHeaderCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#E2F5F1',
+    borderRadius: 16,
+    padding: 12,
+    marginBottom: 16,
+    borderWidth: 1,
+    borderColor: '#A3ECDE',
+  },
+  progressIconContainer: {
+    width: 36,
+    height: 36,
+    borderRadius: 10,
+    backgroundColor: '#A3ECDE',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 12,
+  },
+  progressLabel: {
+    fontSize: 9,
+    fontWeight: '800',
+    color: '#196660',
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+    marginBottom: 2,
+  },
+  progressValue: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: COLORS.brand950,
+  },
+  nextDestDoneBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#1C857C',
+    paddingHorizontal: 12,
+    paddingVertical: 7,
+    borderRadius: 10,
+    gap: 4,
+  },
+  nextDestDoneBtnText: {
+    color: '#FFFFFF',
+    fontSize: 11,
+    fontWeight: '700',
+  },
+  floatingDoneBtn: {
+    position: 'absolute',
+    top: 8,
+    right: 8,
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 12,
+    gap: 3,
+    zIndex: 10,
+    borderWidth: 0.5,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.15,
+    shadowRadius: 1,
+    elevation: 2,
+  },
+  floatingDoneBtnActive: {
+    backgroundColor: '#A3ECDE',
+    borderColor: '#196660',
+  },
+  floatingDoneBtnInactive: {
+    backgroundColor: 'rgba(0, 0, 0, 0.6)',
+    borderColor: 'rgba(255, 255, 255, 0.3)',
+  },
+  floatingDoneBtnText: {
+    fontSize: 9,
+    fontWeight: '800',
+  },
+  floatingDoneBtnTextActive: {
+    color: '#196660',
+  },
+  floatingDoneBtnTextInactive: {
+    color: '#FFFFFF',
   },
 });
