@@ -13,6 +13,7 @@ import {
   SafeAreaView,
   StatusBar,
   Linking,
+  AppState,
 } from 'react-native';
 import { useLocalSearchParams, useRouter, Stack } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
@@ -98,6 +99,21 @@ export default function ChatRoomScreen() {
     if (roomId) {
       loadMessageHistory();
     }
+  }, [roomId]);
+
+  // Refresh histori pesan secara otomatis saat user kembali ke app (foreground) dari browser pembayaran
+  useEffect(() => {
+    if (!roomId) return;
+    const subscription = AppState.addEventListener('change', (nextAppState) => {
+      if (nextAppState === 'active') {
+        console.log('[ChatRoom] App kembali aktif (foreground). Merefresh histori pesan...');
+        loadMessageHistory();
+      }
+    });
+
+    return () => {
+      subscription.remove();
+    };
   }, [roomId]);
 
   // Otomatis scroll ke pesan paling bawah saat ada pesan baru masuk
